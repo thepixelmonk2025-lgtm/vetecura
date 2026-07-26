@@ -8,6 +8,11 @@ const API_BASE_URL = typeof window !== "undefined" && window.location.origin.inc
   ? "http://localhost:8000/api/v1"
   : "/api/v1";
 
+// Helper for deterministic currency and number formatting
+function formatINR(val: number): string {
+  return new Intl.NumberFormat("en-IN").format(val);
+}
+
 // SVG Icon Helpers
 function IconLogo({ className = "w-5 h-5" }: { className?: string }) {
   return (
@@ -116,6 +121,12 @@ export default function WebAdminDashboard() {
   const [loginPassword, setLoginPassword] = useState("password123");
   const [isLiveConnected, setIsLiveConnected] = useState(false);
 
+  // Mounted guard to prevent hydration mismatch
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Live Data States
   const [dashboardMetrics, setDashboardMetrics] = useState({
     totalValuation: 150000,
@@ -144,7 +155,6 @@ export default function WebAdminDashboard() {
           }));
         }
       } catch (err) {
-        // Fallback to initial state if API is offline
         setIsLiveConnected(false);
       }
     }
@@ -375,7 +385,9 @@ export default function WebAdminDashboard() {
                 </div>
                 <div className="mt-3 sm:mt-4">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xl sm:text-2xl font-black text-slate-900">${dashboardMetrics.totalValuation.toLocaleString()}</span>
+                    <span suppressHydrationWarning className="text-xl sm:text-2xl font-black text-slate-900">
+                      ₹{mounted ? formatINR(dashboardMetrics.totalValuation) : "1,50,000"}
+                    </span>
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">+4.2%</span>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-1">Total Inventory</p>
@@ -393,7 +405,9 @@ export default function WebAdminDashboard() {
                 </div>
                 <div className="mt-3 sm:mt-4">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xl sm:text-2xl font-black text-slate-900">{dashboardMetrics.dispatchedUnits.toLocaleString()}</span>
+                    <span suppressHydrationWarning className="text-xl sm:text-2xl font-black text-slate-900">
+                      {mounted ? formatINR(dashboardMetrics.dispatchedUnits) : "12,450"}
+                    </span>
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">+5.03%</span>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-1">Units Dispatched</p>
