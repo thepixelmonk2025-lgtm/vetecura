@@ -23,13 +23,19 @@ requirements: [CORE-01, CORE-02, CORE-03]
 duration: "5 min"
 completed: "2026-07-26T18:38:00Z"
 coverage:
-  - kind: verification
-    ref: "tests/test_audit.py"
-    status: pass
+  - id: core-02-hash
+    description: "Verify immutable audit ledger hash chaining is deterministic."
+    verification: 
+      - ref: "tests/test_audit.py"
+        kind: unit
+        status: pass
     human_judgment: false
-  - kind: verification
-    ref: "tests/test_rbac.py"
-    status: pass
+  - id: core-03-rbac
+    description: "Verify RBAC dependencies properly restrict endpoint access."
+    verification:
+      - ref: "tests/test_rbac.py"
+        kind: unit
+        status: pass
     human_judgment: false
 ---
 # Phase 01 Plan 01: Core Engine & Data Infrastructure Summary

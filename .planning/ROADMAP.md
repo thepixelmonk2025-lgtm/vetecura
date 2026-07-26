@@ -4,8 +4,9 @@ This document outlines the execution phases for the project.
 
 ## Phases
 
-### Phase 1: Core Engine & Data Infrastructure
-**Goal:** Set up the DB schema, immutable audit ledger, FastAPI core, and RBAC/JWT auth
+### Phase 01: Core Engine & Data Infrastructure
+**Status:** Completed
+**Goal:** Initialize the FastAPI core, configure PostgreSQL & Alembic, and establish the immutable audit ledger with foundational RBAC./JWT auth
 **Mode:** mvp
 **Requirements:** CORE-01, CORE-02, CORE-03
 **Success Criteria:**
@@ -13,7 +14,8 @@ This document outlines the execution phases for the project.
 2. FastAPI app can authenticate users with JWTs and enforce basic RBAC.
 3. Immutable audit ledger is functional.
 
-### Phase 2: Inbound & Stock In
+### Phase 02: Inbound & Stock In
+**Status:** Completed
 **Goal:** Implement Supplier management, PO approval, OCR invoice ingestion, GRN scan verification, and rack mapping
 **Mode:** mvp
 **Requirements:** INBOUND-01, INBOUND-02, INBOUND-03, INBOUND-04
