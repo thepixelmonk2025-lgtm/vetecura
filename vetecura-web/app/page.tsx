@@ -170,7 +170,7 @@ export default function WebAdminDashboard() {
     );
   }
 
-  // --- CLEAN PRODUCTION TOP SECTION ---
+  // --- FULL MULTI-PAGE WEB ADMIN SYSTEM ---
   return (
     <div className="min-h-screen bg-[#f3f6f4] font-sans text-slate-800 antialiased pb-12">
       {/* TOP HEADER CONTAINER */}
@@ -211,7 +211,6 @@ export default function WebAdminDashboard() {
 
           {/* 3. Right Control Bar: Notifications + User Profile + Sign Out */}
           <div className="flex items-center gap-3">
-            {/* Notification Bell */}
             <button
               title="Notifications"
               className="relative h-10 w-10 rounded-full bg-[#0a3830] hover:bg-emerald-700/50 border border-emerald-600/50 flex items-center justify-center text-white transition-colors shrink-0"
@@ -220,7 +219,6 @@ export default function WebAdminDashboard() {
               <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
             </button>
 
-            {/* User Profile Pill */}
             <div className="flex items-center gap-3 bg-[#0a3830] pl-2.5 pr-4 py-1.5 rounded-full border border-emerald-600/50 shrink-0">
               <div className="h-8 w-8 rounded-full bg-[#00a884] text-slate-950 font-black text-xs flex items-center justify-center uppercase shadow-sm">
                 {userName.charAt(0)}
@@ -231,7 +229,6 @@ export default function WebAdminDashboard() {
               </div>
             </div>
 
-            {/* Sign Out Button */}
             <button
               onClick={() => setIsLoggedIn(false)}
               title="Sign Out"
@@ -245,8 +242,20 @@ export default function WebAdminDashboard() {
         {/* Subheader Greeting Bar */}
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center mt-6">
           <div>
-            <p className="text-xs font-bold text-emerald-300/90 tracking-wide uppercase">Good Morning,</p>
-            <h1 className="text-3xl font-black text-white tracking-tight mt-0.5">{userName}</h1>
+            <p className="text-xs font-bold text-emerald-300/90 tracking-wide uppercase">
+              {activeTab === "dashboard" && "Good Morning,"}
+              {activeTab === "inbound" && "Module 02 • Stock In Management"}
+              {activeTab === "dispatch" && "Module 03 • Outbound Dispatch Engine"}
+              {activeTab === "inventory" && "Module 04 • Physical Warehouse Racks"}
+              {activeTab === "reports" && "Module 05 • Immutable Audit & Anti-Theft"}
+            </p>
+            <h1 className="text-3xl font-black text-white tracking-tight mt-0.5 capitalize">
+              {activeTab === "dashboard" && userName}
+              {activeTab === "inbound" && "Inbound Goods Received (GRN)"}
+              {activeTab === "dispatch" && "Outbound Dispatch Verification"}
+              {activeTab === "inventory" && "Rack & Stock Storage Map"}
+              {activeTab === "reports" && "Audit Ledger & Telegram Logs"}
+            </h1>
           </div>
 
           <div className="flex items-center gap-3 mt-4 md:mt-0">
@@ -260,200 +269,365 @@ export default function WebAdminDashboard() {
         </div>
       </header>
 
-      {/* MAIN CONTENT (OVERLAPPING CARDS) */}
+      {/* DYNAMIC MAIN WORKSPACE CONTENT */}
       <main className="max-w-7xl mx-auto px-6 md:px-12 -mt-12 space-y-6">
-        {/* STATS ROW */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
-            <div className="flex justify-between items-center">
-              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
-                <IconWallet className="w-5 h-5" />
-              </div>
-              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
-                <IconArrowUpRight />
-              </span>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900">$150,000</span>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">
-                  +4.2%
-                </span>
-              </div>
-              <p className="text-xs font-medium text-slate-400 mt-1">Total Inventory</p>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
-            <div className="flex justify-between items-center">
-              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
-                <IconBox className="w-5 h-5" />
-              </div>
-              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
-                <IconArrowUpRight />
-              </span>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900">12,450</span>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">
-                  +5.03%
-                </span>
-              </div>
-              <p className="text-xs font-medium text-slate-400 mt-1">Units Dispatched</p>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
-            <div className="flex justify-between items-center">
-              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
-                <IconShield className="w-5 h-5" />
-              </div>
-              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
-                <IconArrowUpRight />
-              </span>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900">0</span>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">
-                  Verified
-                </span>
-              </div>
-              <p className="text-xs font-medium text-slate-400 mt-1">Audit Anomalies</p>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
-            <div className="flex justify-between items-center">
-              <div className="h-9 w-9 rounded-full bg-amber-50 text-amber-800 flex items-center justify-center">
-                <IconAlertTriangle className="w-5 h-5" />
-              </div>
-              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
-                <IconArrowUpRight />
-              </span>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900">1 Batch</span>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">
-                  Risk 20
-                </span>
-              </div>
-              <p className="text-xs font-medium text-slate-400 mt-1">Expiry Risk Alerts</p>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-3xl shadow-sm border border-dashed border-slate-300 flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500 transition-all">
-            <div className="h-11 w-11 rounded-full bg-[#052620] text-white flex items-center justify-center shadow-md shadow-emerald-950/20 mb-2">
-              <IconPlus className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-bold text-slate-700">Add new widget</span>
-          </div>
-        </div>
-
-        {/* ROW 2: THREE-COLUMN GRID SECTION */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">Active Dispatches</h3>
-                <p className="text-xs font-bold text-slate-400 mt-0.5">24 Active Orders</p>
-              </div>
-              <div className="flex gap-1">
-                <button className="h-6 w-6 rounded-full border border-slate-200 text-xs text-slate-400">←</button>
-                <button className="h-6 w-6 rounded-full border border-slate-200 text-xs text-slate-400">→</button>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                { name: "Senior Vaccine Batch A", type: "Cold-Chain Outbound", icon: <IconBox className="w-5 h-5 text-blue-600" /> },
-                { name: "Vitamin D3 Softgels", type: "Standard Dispatch", icon: <IconTruck className="w-5 h-5 text-emerald-600" /> },
-                { name: "Surgical Gloves Pack", type: "Bulk Outbound", icon: <IconWarehouse className="w-5 h-5 text-purple-600" /> },
-                { name: "Antiseptic Solution 1L", type: "Hazardous Outbound", icon: <IconShield className="w-5 h-5 text-amber-600" /> },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 hover:bg-slate-100/80 transition-colors">
-                  <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                    {item.icon}
+        {/* ----------------- TAB 1: DASHBOARD OVERVIEW ----------------- */}
+        {activeTab === "dashboard" && (
+          <>
+            {/* STATS ROW */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                <div className="flex justify-between items-center">
+                  <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
+                    <IconWallet className="w-5 h-5" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-bold text-slate-900">{item.name}</p>
-                    <p className="text-[10px] font-medium text-slate-400">{item.type}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">Pending Approvals</h3>
-                <p className="text-xs font-bold text-slate-400 mt-0.5">2 Items Requiring Manager Sign-Off</p>
-              </div>
-              <span className="text-slate-400 font-bold text-xs">•••</span>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                { name: "Ruben Philips", title: "Damage Write-Off", time: "Mon 12, 2026 - 10:00 AM", avatar: "RP" },
-                { name: "Emery Donin", title: "PO #2026-0041 Approval", time: "Mon 12, 2026 - 10:30 AM", avatar: "ED" },
-                { name: "Charlie Korsgaard", title: "Cycle Count Variance", time: "Mon 12, 2026 - 11:15 AM", avatar: "CK" },
-                { name: "Ryan Vaccaro", title: "GRN Gate Entry Sign-Off", time: "Mon 12, 2026 - 11:45 AM", avatar: "RV" },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-[#052620] text-emerald-300 font-bold text-xs flex items-center justify-center">
-                      {item.avatar}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">{item.name}</p>
-                      <p className="text-[10px] font-medium text-slate-400">{item.title}</p>
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-1 text-[9px] font-semibold text-slate-600 bg-slate-200/70 rounded-full">
-                    {item.time}
+                  <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+                    <IconArrowUpRight />
                   </span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">Rack Occupancy</h3>
-                <p className="text-xs font-bold text-slate-400 mt-0.5">Total Registered Stock</p>
-              </div>
-              <span className="text-xl font-black text-slate-900">3,109</span>
-            </div>
-
-            <div className="flex h-3 w-full rounded-full overflow-hidden gap-1 bg-slate-100">
-              <div className="bg-[#052620] w-[50%] h-full rounded-full"></div>
-              <div className="bg-[#0b3c34] w-[25%] h-full rounded-full"></div>
-              <div className="bg-emerald-400 w-[15%] h-full rounded-full"></div>
-              <div className="bg-slate-300 w-[10%] h-full rounded-full"></div>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              {[
-                { label: "Rack A (High Velocity)", count: "1,554 units" },
-                { label: "Rack B (Cold Chain Storage)", count: "777 units" },
-                { label: "Rack C (Bulk Hold)", count: "466 units" },
-                { label: "Damage Hold Warehouse", count: "312 units" },
-              ].map((cat, idx) => (
-                <div key={idx} className="flex justify-between items-center text-xs font-semibold">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-[#052620]"></span>
-                    <span className="text-slate-600">{cat.label}</span>
+                <div className="mt-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-slate-900">$150,000</span>
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">+4.2%</span>
                   </div>
-                  <span className="font-bold text-slate-900">{cat.count}</span>
+                  <p className="text-xs font-medium text-slate-400 mt-1">Total Inventory</p>
                 </div>
-              ))}
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                <div className="flex justify-between items-center">
+                  <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
+                    <IconBox className="w-5 h-5" />
+                  </div>
+                  <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+                    <IconArrowUpRight />
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-slate-900">12,450</span>
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">+5.03%</span>
+                  </div>
+                  <p className="text-xs font-medium text-slate-400 mt-1">Units Dispatched</p>
+                </div>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                <div className="flex justify-between items-center">
+                  <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
+                    <IconShield className="w-5 h-5" />
+                  </div>
+                  <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+                    <IconArrowUpRight />
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-slate-900">0</span>
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">Verified</span>
+                  </div>
+                  <p className="text-xs font-medium text-slate-400 mt-1">Audit Anomalies</p>
+                </div>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                <div className="flex justify-between items-center">
+                  <div className="h-9 w-9 rounded-full bg-amber-50 text-amber-800 flex items-center justify-center">
+                    <IconAlertTriangle className="w-5 h-5" />
+                  </div>
+                  <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+                    <IconArrowUpRight />
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-slate-900">1 Batch</span>
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">Risk 20</span>
+                  </div>
+                  <p className="text-xs font-medium text-slate-400 mt-1">Expiry Risk Alerts</p>
+                </div>
+              </div>
+
+              <div className="bg-white p-5 rounded-3xl shadow-sm border border-dashed border-slate-300 flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500 transition-all">
+                <div className="h-11 w-11 rounded-full bg-[#052620] text-white flex items-center justify-center shadow-md shadow-emerald-950/20 mb-2">
+                  <IconPlus className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-700">Add new widget</span>
+              </div>
+            </div>
+
+            {/* THREE COLUMN SECTION */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">Active Dispatches</h3>
+                    <p className="text-xs font-bold text-slate-400 mt-0.5">24 Active Orders</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { name: "Senior Vaccine Batch A", type: "Cold-Chain Outbound", icon: <IconBox className="w-5 h-5 text-blue-600" /> },
+                    { name: "Vitamin D3 Softgels", type: "Standard Dispatch", icon: <IconTruck className="w-5 h-5 text-emerald-600" /> },
+                    { name: "Surgical Gloves Pack", type: "Bulk Outbound", icon: <IconWarehouse className="w-5 h-5 text-purple-600" /> },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50">
+                      <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                        {item.icon}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-slate-900">{item.name}</p>
+                        <p className="text-[10px] font-medium text-slate-400">{item.type}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">Pending Approvals</h3>
+                    <p className="text-xs font-bold text-slate-400 mt-0.5">2 Items Requiring Manager Sign-Off</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { name: "Ruben Philips", title: "Damage Write-Off", time: "10:00 AM", avatar: "RP" },
+                    { name: "Emery Donin", title: "PO #2026-0041 Approval", time: "10:30 AM", avatar: "ED" },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-[#052620] text-emerald-300 font-bold text-xs flex items-center justify-center">
+                          {item.avatar}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">{item.name}</p>
+                          <p className="text-[10px] font-medium text-slate-400">{item.title}</p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 text-[9px] font-semibold text-slate-600 bg-slate-200/70 rounded-full">{item.time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">Rack Occupancy</h3>
+                    <p className="text-xs font-bold text-slate-400 mt-0.5">Total Registered Stock</p>
+                  </div>
+                  <span className="text-xl font-black text-slate-900">3,109</span>
+                </div>
+                <div className="flex h-3 w-full rounded-full overflow-hidden gap-1 bg-slate-100">
+                  <div className="bg-[#052620] w-[50%] h-full rounded-full"></div>
+                  <div className="bg-[#0b3c34] w-[25%] h-full rounded-full"></div>
+                  <div className="bg-emerald-400 w-[15%] h-full rounded-full"></div>
+                  <div className="bg-slate-300 w-[10%] h-full rounded-full"></div>
+                </div>
+                <div className="space-y-2 pt-2 text-xs">
+                  <div className="flex justify-between font-semibold"><span className="text-slate-600">Rack A (High Velocity)</span><span className="font-bold">1,554 units</span></div>
+                  <div className="flex justify-between font-semibold"><span className="text-slate-600">Rack B (Cold Chain)</span><span className="font-bold">777 units</span></div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ----------------- TAB 2: INBOUND GRN PAGE ----------------- */}
+        {activeTab === "inbound" && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black text-slate-900">Active Inbound Shipments & PO Ingestion</h2>
+                <p className="text-xs text-slate-400">Scan incoming goods to generate 100% item-level barcode tracking.</p>
+              </div>
+              <button className="px-5 py-2.5 bg-[#00a884] text-slate-950 text-xs font-black rounded-full shadow-md">
+                + Register New Gate Entry
+              </button>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80">
+              <h3 className="text-sm font-extrabold text-slate-900 mb-4 uppercase tracking-wider">Approved Purchase Orders Ready for GRN</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3">PO Number</th>
+                      <th className="p-3">Supplier</th>
+                      <th className="p-3">Expected Units</th>
+                      <th className="p-3">GRN Status</th>
+                      <th className="p-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    <tr>
+                      <td className="p-3 font-bold text-blue-600">PO-2026-0041</td>
+                      <td className="p-3">PharmaCare Ltd</td>
+                      <td className="p-3 font-bold">500 units</td>
+                      <td className="p-3"><span className="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold">In Progress (342/500)</span></td>
+                      <td className="p-3"><button className="px-4 py-1.5 bg-[#052620] text-white text-xs font-bold rounded-xl">Open PWA Scanner</button></td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-bold text-blue-600">PO-2026-0039</td>
+                      <td className="p-3">MediSupply Global</td>
+                      <td className="p-3 font-bold">1,200 units</td>
+                      <td className="p-3"><span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold">Completed & Verified</span></td>
+                      <td className="p-3"><button className="px-4 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl">View Barcode Manifest</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* ----------------- TAB 3: DISPATCH PAGE ----------------- */}
+        {activeTab === "dispatch" && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black text-slate-900">Outbound Dispatch & FEFO Verification</h2>
+                <p className="text-xs text-slate-400">Hard-blocked validation prevents non-scanned or mismatched dispatches.</p>
+              </div>
+              <button className="px-5 py-2.5 bg-[#052620] text-white text-xs font-black rounded-full shadow-md">
+                + Generate FEFO Pick List
+              </button>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80">
+              <h3 className="text-sm font-extrabold text-slate-900 mb-4 uppercase tracking-wider">Active Sales Order Dispatch Scans</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3">Sales Order ID</th>
+                      <th className="p-3">Customer / Destination</th>
+                      <th className="p-3">Target Items</th>
+                      <th className="p-3">Scan Verification</th>
+                      <th className="p-3">Dispatch Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    <tr>
+                      <td className="p-3 font-bold text-emerald-600">SO-88412</td>
+                      <td className="p-3">Central Vet Clinic #4</td>
+                      <td className="p-3 font-bold">150 units</td>
+                      <td className="p-3"><span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold">150/150 Match</span></td>
+                      <td className="p-3"><span className="px-3 py-1 bg-emerald-600 text-white rounded-xl text-xs font-extrabold">Ready to Ship</span></td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-bold text-emerald-600">SO-88415</td>
+                      <td className="p-3">City Animal Hospital</td>
+                      <td className="p-3 font-bold">80 units</td>
+                      <td className="p-3"><span className="px-2.5 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold">78/80 Mismatch (Block)</span></td>
+                      <td className="p-3"><button className="px-3 py-1 bg-red-600 text-white rounded-xl text-xs font-bold">Manager Override</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- TAB 4: INVENTORY PAGE ----------------- */}
+        {activeTab === "inventory" && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black text-slate-900">Physical Warehouse Rack Map & Capacity</h2>
+                <p className="text-xs text-slate-400">Consolidation-first algorithm optimizes rack storage and stock placement.</p>
+              </div>
+              <button className="px-5 py-2.5 bg-[#052620] text-white text-xs font-black rounded-full shadow-md">
+                + Schedule Cycle Count Audit
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-extrabold text-slate-900">Rack A-01 (High Velocity)</h3>
+                  <span className="text-xs font-bold text-emerald-600">90% Capacity</span>
+                </div>
+                <p className="text-xs text-slate-400">Contains: Vitamin D3 (450 units), Amoxicillin 500mg (200 units)</p>
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 w-[90%]"></div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-extrabold text-slate-900">Rack B-12 (Cold Chain)</h3>
+                  <span className="text-xs font-bold text-amber-600">98% Capacity</span>
+                </div>
+                <p className="text-xs text-slate-400">Contains: Senior Rabies Vaccine (777 units)</p>
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-500 w-[98%]"></div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-extrabold text-slate-900">Damage Hold Warehouse</h3>
+                  <span className="text-xs font-bold text-red-600">3 Damaged Bottles</span>
+                </div>
+                <p className="text-xs text-slate-400">Requires Manager write-off approval with photo proof</p>
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-red-500 w-[15%]"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ----------------- TAB 5: REPORTS & AUDIT PAGE ----------------- */}
+        {activeTab === "reports" && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black text-slate-900">Immutable Audit Ledger & Compliance Reports</h2>
+                <p className="text-xs text-slate-400">Cryptographic SHA-256 hash-chain guarantees 0 un-audited stock edits.</p>
+              </div>
+              <button className="px-5 py-2.5 bg-[#00a884] text-slate-950 text-xs font-black rounded-full shadow-md">
+                🔍 Verify Ledger Hash Chain
+              </button>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80">
+              <h3 className="text-sm font-extrabold text-slate-900 mb-4 uppercase tracking-wider">Latest Cryptographic Audit Entries</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3">Timestamp</th>
+                      <th className="p-3">Action</th>
+                      <th className="p-3">Entity ID</th>
+                      <th className="p-3">SHA-256 Block Hash</th>
+                      <th className="p-3">Integrity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr>
+                      <td className="p-3 font-sans text-slate-500">2026-07-26 21:40:00</td>
+                      <td className="p-3 font-bold text-emerald-600">STOCK_IN_SCAN</td>
+                      <td className="p-3">VET-VD2207-000342</td>
+                      <td className="p-3 text-slate-400 truncate max-w-xs">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</td>
+                      <td className="p-3 font-sans"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md">CHAIN OK</span></td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-sans text-slate-500">2026-07-26 21:35:12</td>
+                      <td className="p-3 font-bold text-blue-600">DISPATCH_VERIFIED</td>
+                      <td className="p-3">SO-88412</td>
+                      <td className="p-3 text-slate-400 truncate max-w-xs">8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4</td>
+                      <td className="p-3 font-sans"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md">CHAIN OK</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
