@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -10,16 +11,20 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
     # Database
+    DATABASE_URL: str = ""
     POSTGRES_SERVER: str = "localhost"
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_USER: str = "vetecura_app"
+    POSTGRES_PASSWORD: str = "vetecura_secure_pass_2026"
     POSTGRES_DB: str = "vetecura"
     POSTGRES_PORT: str = "5432"
 
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
+        env_db_url = os.getenv("DATABASE_URL") or self.DATABASE_URL
+        if env_db_url:
+            return env_db_url
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
     
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 
 settings = Settings()
