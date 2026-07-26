@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type NavTab = "dashboard" | "inbound" | "dispatch" | "inventory" | "reports";
+
+const API_BASE_URL = typeof window !== "undefined" && window.location.origin.includes(":3000")
+  ? "http://localhost:8000/api/v1"
+  : "/api/v1";
 
 // SVG Icon Helpers
 function IconLogo({ className = "w-5 h-5" }: { className?: string }) {
@@ -105,14 +109,68 @@ export default function WebAdminDashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
   const [userName, setUserName] = useState("Ruben Philips");
-  const [userRoleTitle] = useState("Warehouse Manager");
+  const [userRoleTitle, setUserRoleTitle] = useState("Warehouse Manager");
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
+  const [loginEmail, setLoginEmail] = useState("owner@vetecura.com");
+  const [loginPassword, setLoginPassword] = useState("password123");
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Live Data States
+  const [dashboardMetrics, setDashboardMetrics] = useState({
+    totalValuation: 150000,
+    dispatchedUnits: 12450,
+    anomalies: 0,
+    expiryAlerts: "1 Batch",
+  });
+
+  const [auditLogs, setAuditLogs] = useState([
+    { timestamp: "2026-07-26 21:40:00", action: "STOCK_IN_SCAN", entity: "VET-VD2207-000342", hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", status: "CHAIN OK" },
+    { timestamp: "2026-07-26 21:35:12", action: "DISPATCH_VERIFIED", entity: "SO-88412", hash: "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4", status: "CHAIN OK" },
+  ]);
+
+  // Attempt real-time backend API connection
+  useEffect(() => {
+    async function fetchLiveDashboard() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/reports/role-dashboard?role=warehouse_manager`);
+        if (res.ok) {
+          const data = await res.json();
+          setIsLiveConnected(true);
+          setDashboardMetrics((prev) => ({
+            ...prev,
+            totalValuation: data.metrics?.total_inventory_valuation || 150000,
+            dispatchedUnits: data.metrics?.dispatched_units || 12450,
+          }));
+        }
+      } catch (err) {
+        // Fallback to initial state if API is offline
+        setIsLiveConnected(false);
+      }
+    }
+    fetchLiveDashboard();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ username: loginEmail, password: loginPassword }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setAuthToken(data.access_token);
+        setIsLiveConnected(true);
+      }
+    } catch (err) {
+      console.log("Local offline login mode active");
+    }
+
     setUserName(loginEmail.split("@")[0].replace(".", " "));
     setIsLoggedIn(true);
   };
@@ -141,7 +199,7 @@ export default function WebAdminDashboard() {
               <input
                 type="email"
                 required
-                placeholder="manager@vetecura.com"
+                placeholder="owner@vetecura.com"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 className="w-full px-4 py-3 text-sm rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:border-[#0b3c34] focus:bg-white transition-all"
@@ -178,7 +236,7 @@ export default function WebAdminDashboard() {
         {/* Top Header Bar */}
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 border-b border-emerald-800/40 pb-4 sm:pb-5">
           
-          {/* Top Row for Mobile (Logo + Actions) */}
+          {/* Top Row for Mobile (Logo + Status + Actions) */}
           <div className="flex items-center justify-between">
             {/* Logo Brand */}
             <div className="flex items-center gap-2.5">
@@ -186,6 +244,9 @@ export default function WebAdminDashboard() {
                 <IconLogo className="w-5 h-5" />
               </div>
               <span className="font-black text-xl sm:text-2xl tracking-tight text-white">Vetecura</span>
+              <span className={`px-2 py-0.5 text-[9px] font-extrabold rounded-full ${isLiveConnected ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30" : "bg-amber-500/20 text-amber-300 border border-amber-400/30"}`}>
+                {isLiveConnected ? "● Live API" : "● Offline Demo"}
+              </span>
             </div>
 
             {/* Mobile Actions (Bell + Profile + Sign Out) */}
@@ -314,7 +375,7 @@ export default function WebAdminDashboard() {
                 </div>
                 <div className="mt-3 sm:mt-4">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xl sm:text-2xl font-black text-slate-900">$150,000</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900">${dashboardMetrics.totalValuation.toLocaleString()}</span>
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">+4.2%</span>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-1">Total Inventory</p>
@@ -332,7 +393,7 @@ export default function WebAdminDashboard() {
                 </div>
                 <div className="mt-3 sm:mt-4">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xl sm:text-2xl font-black text-slate-900">12,450</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900">{dashboardMetrics.dispatchedUnits.toLocaleString()}</span>
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">+5.03%</span>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-1">Units Dispatched</p>
@@ -350,7 +411,7 @@ export default function WebAdminDashboard() {
                 </div>
                 <div className="mt-3 sm:mt-4">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xl sm:text-2xl font-black text-slate-900">0</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900">{dashboardMetrics.anomalies}</span>
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">Verified</span>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-1">Audit Anomalies</p>
@@ -368,7 +429,7 @@ export default function WebAdminDashboard() {
                 </div>
                 <div className="mt-3 sm:mt-4">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xl sm:text-2xl font-black text-slate-900">1 Batch</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900">{dashboardMetrics.expiryAlerts}</span>
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">Risk 20</span>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-1">Expiry Risk Alerts</p>
@@ -635,20 +696,15 @@ export default function WebAdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    <tr>
-                      <td className="p-3 font-sans text-slate-500">2026-07-26 21:40:00</td>
-                      <td className="p-3 font-bold text-emerald-600">STOCK_IN_SCAN</td>
-                      <td className="p-3">VET-VD2207-000342</td>
-                      <td className="p-3 text-slate-400 truncate max-w-xs">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</td>
-                      <td className="p-3 font-sans"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md">CHAIN OK</span></td>
-                    </tr>
-                    <tr>
-                      <td className="p-3 font-sans text-slate-500">2026-07-26 21:35:12</td>
-                      <td className="p-3 font-bold text-blue-600">DISPATCH_VERIFIED</td>
-                      <td className="p-3">SO-88412</td>
-                      <td className="p-3 text-slate-400 truncate max-w-xs">8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4</td>
-                      <td className="p-3 font-sans"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md">CHAIN OK</span></td>
-                    </tr>
+                    {auditLogs.map((log, i) => (
+                      <tr key={i}>
+                        <td className="p-3 font-sans text-slate-500">{log.timestamp}</td>
+                        <td className="p-3 font-bold text-emerald-600">{log.action}</td>
+                        <td className="p-3">{log.entity}</td>
+                        <td className="p-3 text-slate-400 truncate max-w-xs">{log.hash}</td>
+                        <td className="p-3 font-sans"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md">{log.status}</span></td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
