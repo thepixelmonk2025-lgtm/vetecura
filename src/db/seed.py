@@ -66,15 +66,15 @@ async def seed_data():
 
         # 3. Products
         products = [
-            ("VD2207", "Vitamin D3 Softgels 2000IU", "Nutraceutical", 50, 10.0),
-            ("VAC-RAB-01", "Rabies Vaccine Cold-Chain", "Vaccine", 100, 25.0),
-            ("GLV-SURG-L", "Surgical Gloves Latex Pack", "Medical Consumable", 200, 5.0),
+            ("VD2207", "Vitamin D3 Softgels 2000IU", "Nutraceutical", 50, "bottle"),
+            ("VAC-RAB-01", "Rabies Vaccine Cold-Chain", "Vaccine", 100, "vial"),
+            ("GLV-SURG-L", "Surgical Gloves Latex Pack", "Medical Consumable", 200, "box"),
         ]
-        for sku, name, cat, min_stock, price in products:
+        for sku, name, cat, reorder_lvl, unit in products:
             result = await db.execute(select(Product).where(Product.sku == sku))
             existing = result.scalars().first()
             if not existing:
-                p = Product(sku=sku, name=name, category=cat, min_stock_level=min_stock, unit_price=price)
+                p = Product(sku=sku, name=name, category=cat, reorder_level=reorder_lvl, unit=unit)
                 db.add(p)
                 print(f"  + Product created: {sku} - {name}")
 
