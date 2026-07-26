@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-type Role = "owner" | "warehouse_manager" | "purchase_team";
 type NavTab = "dashboard" | "inbound" | "dispatch" | "inventory" | "reports";
 
 // SVG Icon Helpers
@@ -104,10 +103,9 @@ function IconLogout({ className = "w-4 h-4" }: { className?: string }) {
 
 export default function WebAdminDashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [activeRole, setActiveRole] = useState<Role>("warehouse_manager");
   const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
   const [userName, setUserName] = useState("Ruben Philips");
-  const [userRoleTitle, setUserRoleTitle] = useState("Warehouse Manager");
+  const [userRoleTitle] = useState("Warehouse Manager");
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -117,20 +115,6 @@ export default function WebAdminDashboard() {
     if (!loginEmail || !loginPassword) return;
     setUserName(loginEmail.split("@")[0].replace(".", " "));
     setIsLoggedIn(true);
-  };
-
-  const handleRoleChange = (role: Role) => {
-    setActiveRole(role);
-    if (role === "owner") {
-      setUserName("Kennedy Jones");
-      setUserRoleTitle("Executive Owner");
-    } else if (role === "warehouse_manager") {
-      setUserName("Ruben Philips");
-      setUserRoleTitle("Warehouse Manager");
-    } else {
-      setUserName("Emery Donin");
-      setUserRoleTitle("Purchase Lead");
-    }
   };
 
   // --- LOGIN SCREEN ---
@@ -149,7 +133,7 @@ export default function WebAdminDashboard() {
           </div>
 
           <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h2>
-          <p className="text-xs text-slate-500 mb-6">Sign in to access your role workspace.</p>
+          <p className="text-xs text-slate-500 mb-6">Sign in to access your corporate workspace.</p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
@@ -186,13 +170,13 @@ export default function WebAdminDashboard() {
     );
   }
 
-  // --- REDESIGNED HIGH-CONTRAST EXECUTIVE TOP SECTION ---
+  // --- CLEAN PRODUCTION TOP SECTION ---
   return (
     <div className="min-h-screen bg-[#f3f6f4] font-sans text-slate-800 antialiased pb-12">
       {/* TOP HEADER CONTAINER */}
       <header className="bg-[#052620] text-white px-6 md:px-12 pt-6 pb-20 shadow-md">
         {/* Top Header Bar */}
-        <div className="max-w-7xl mx-auto flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4 border-b border-emerald-800/40 pb-5">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-emerald-800/40 pb-5">
           {/* 1. Logo Brand */}
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shadow-md">
@@ -201,7 +185,7 @@ export default function WebAdminDashboard() {
             <span className="font-black text-2xl tracking-tight text-white">Vetecura</span>
           </div>
 
-          {/* 2. Center Navigation Pill Bar (High Contrast, Single Line, Crisp Typography) */}
+          {/* 2. Center Navigation Pill Bar */}
           <nav className="flex items-center bg-[#021814] p-1.5 rounded-full border border-emerald-700/60 shadow-inner overflow-x-auto">
             {[
               { id: "dashboard", label: "Dashboard", icon: <IconGrid className="w-4 h-4" /> },
@@ -225,25 +209,8 @@ export default function WebAdminDashboard() {
             ))}
           </nav>
 
-          {/* 3. Right Control Bar: Role Selector + Notifications + User Avatar Profile */}
+          {/* 3. Right Control Bar: Notifications + User Profile + Sign Out */}
           <div className="flex items-center gap-3">
-            {/* Role Switcher Pill */}
-            <div className="flex items-center bg-[#021814] p-1 rounded-full border border-emerald-700/60">
-              {(["owner", "warehouse_manager", "purchase_team"] as Role[]).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => handleRoleChange(r)}
-                  className={`px-3.5 py-1.5 text-xs font-bold rounded-full capitalize transition-all whitespace-nowrap ${
-                    activeRole === r
-                      ? "bg-[#00a884] text-slate-950 shadow-md font-extrabold"
-                      : "text-emerald-200/70 hover:text-white"
-                  }`}
-                >
-                  {r.replace("_", " ")}
-                </button>
-              ))}
-            </div>
-
             {/* Notification Bell */}
             <button
               title="Notifications"
