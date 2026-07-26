@@ -1,0 +1,80 @@
+import asyncio
+from sqlalchemy.future import select
+from src.db.session import AsyncSessionLocal
+from src.models.user import User, RoleEnum
+from src.models.supplier import Supplier
+from src.models.product import Product
+from src.models.stock import Rack
+from src.core.security import get_password_hash
+
+async def seed_data():
+    async with AsyncSessionLocal() as db:
+        print("🌱 Seeding Vetecura IMS initial database records...")
+
+        # 1. Users
+        users = [
+            ("owner@vetecura.com", RoleEnum.owner),
+            ("manager@vetecura.com", RoleEnum.warehouse_manager),
+            ("staff@vetecura.com", RoleEnum.warehouse_staff),
+            ("purchase@vetecura.com", RoleEnum.purchase_team),
+        ]
+        
+        for email, role in users:
+            result = await db.execute(select(User).where(User.email == email))
+            existing = result.scalars().first()
+            if not existing:
+                u = User(
+                    email=email,
+                    hashed_password=get_password_hash("password123"),
+                    role=role,
+                    is_active=True,
+                )
+                db.add(u)
+                print(f"  + User created: {email} ({role.value})")
+
+        # 2. Suppliers
+        suppliers = [
+            ("PharmaCare Ltd", "contact@pharmacare.com", "123 Pharma Way"),
+            ("MediSupply Global", "sales@medisupply.com", "456 Medical Ave"),
+        ]
+        for name, email, addr in suppliers:
+            result = await db.execute(select(Supplier).where(Supplier.name == name))
+            existing = result.scalars().first()
+            if not existing:
+                s = Supplier(name=name, email=email, address=addr)
+                db.add(s)
+                print(f"  + Supplier created: {name}")
+
+        # 3. Products
+        products = [
+            ("VD2207", "Vitamin D3 Softgels 2000IU", "Nutraceutical", 50, 10.0),
+            ("VAC-RAB-01", "Rabies Vaccine Cold-Chain", "Vaccine", 100, 25.0),
+            ("GLV-SURG-L", "Surgical Gloves Latex Pack", "Medical Consumable", 200, 5.0),
+        ]
+        for sku, name, cat, min_stock, price in products:
+            result = await db.execute(select(Product).where(Product.sku == sku))
+            existing = result.scalars().first()
+            if not existing:
+                p = Product(sku=sku, name=name, category=cat, min_stock_level=min_stock, unit_price=price)
+                db.add(p)
+                print(f"  + Product created: {sku} - {name}")
+
+        # 4. Racks
+        racks = [
+            ("Rack A-01", "High-velocity front rack", 500),
+            ("Rack B-12", "Cold-chain refrigerated rack", 200),
+            ("Damage Hold", "Quarantine hold warehouse", 50),
+        ]
+        for code, desc, cap in racks:
+            result = await db.execute(select(Rack).where(Rack.code == code))
+            existing = result.scalars().first()
+            if not existing:
+                r = Rack(code=code, description=desc, capacity=cap)
+                db.add(r)
+                print(f"  + Rack created: {code}")
+
+        await db.commit()
+        print("✅ Database seeding complete!")
+
+if __name__ == "__main__":
+    asyncio.run(seed_data())
