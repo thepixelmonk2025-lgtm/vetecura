@@ -61,25 +61,25 @@ export default function App() {
             style={{ width: `${(scannedCount / totalExpected) * 100}%` }}
           ></div>
         </div>
-        <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#94a3b8' }}>
-          Last item: <span style={{ color: '#f8fafc', fontWeight: 600 }}>{lastScanned}</span>
+        <div style={{ marginTop: '10px', fontSize: '0.85rem', color: '#64748b' }}>
+          Last item: <span style={{ color: '#0f172a', fontWeight: 600 }}>{lastScanned}</span>
         </div>
       </div>
 
       {/* Main Single-Action Scan Target */}
       <main className="scan-area">
         <button className="scan-button" onClick={triggerScan}>
-          <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg width="52" height="52" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth="2"
+              strokeWidth="2.5"
               d="M12 4v16m8-8H4"
             />
           </svg>
           <span>TAP TO SCAN</span>
         </button>
-        <p style={{ marginTop: '20px', color: '#94a3b8', fontSize: '0.9rem' }}>
+        <p style={{ marginTop: '24px', color: '#64748b', fontSize: '0.9rem', fontWeight: 500 }}>
           Supports Camera + External USB/Bluetooth Scanner
         </p>
       </main>
