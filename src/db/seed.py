@@ -1,6 +1,16 @@
 import asyncio
 from sqlalchemy.future import select
-from src.db.session import AsyncSessionLocal
+from src.db.session import AsyncSessionLocal, engine, Base
+
+# Import all models so SQLAlchemy metadata knows all tables
+import src.models.user
+import src.models.supplier
+import src.models.product
+import src.models.inbound
+import src.models.outbound
+import src.models.stock
+import src.models.audit
+
 from src.models.user import User, RoleEnum
 from src.models.supplier import Supplier
 from src.models.product import Product
@@ -8,6 +18,12 @@ from src.models.inbound import Warehouse, Rack
 from src.core.security import get_password_hash
 
 async def seed_data():
+    # 0. Automatically create all database tables if they do not exist
+    async with engine.begin() as conn:
+        print("🔨 Creating database tables if missing...")
+        await conn.run_sync(Base.metadata.create_all)
+        print("✅ Database tables created successfully.")
+
     async with AsyncSessionLocal() as db:
         print("🌱 Seeding Vetecura IMS initial database records...")
 
