@@ -24,7 +24,8 @@ This document outlines the execution phases for the project.
 2. Invoices can be ingested and GRNs verified via scans.
 3. Stock In logic properly updates inventory and rack mapping.
 
-### Phase 3: Dispatch & Anti-Theft
+### Phase 03: Dispatch & Anti-Theft
+**Status:** Completed
 **Goal:** Build Pick List engine, item-level dispatch scanning, validation/blocking, and damage write-off workflow
 **Mode:** mvp
 **Requirements:** OUTBOUND-01, OUTBOUND-02, OUTBOUND-03, OUTBOUND-04
