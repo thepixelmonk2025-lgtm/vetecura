@@ -2,14 +2,17 @@ import asyncio
 from sqlalchemy.future import select
 from src.db.session import AsyncSessionLocal, engine, Base
 
-# Import all models so SQLAlchemy metadata knows all tables
+# Import all model modules so SQLAlchemy Base registers all tables
 import src.models.user
 import src.models.supplier
 import src.models.product
 import src.models.inbound
-import src.models.outbound
+import src.models.dispatch
 import src.models.stock
 import src.models.audit
+import src.models.antitheft
+import src.models.label
+import src.models.notification
 
 from src.models.user import User, RoleEnum
 from src.models.supplier import Supplier
