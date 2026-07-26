@@ -5,6 +5,95 @@ import { useState } from "react";
 type Role = "owner" | "warehouse_manager" | "purchase_team";
 type NavTab = "dashboard" | "inbound" | "dispatch" | "inventory" | "reports";
 
+// SVG Icon Helpers
+function IconLogo({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM13.5 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5z" />
+    </svg>
+  );
+}
+
+function IconGrid({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+    </svg>
+  );
+}
+
+function IconBox({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+    </svg>
+  );
+}
+
+function IconTruck({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.25v11.25m0-11.25h-6.375c-.621 0-1.125.504-1.125 1.125v8.25" />
+    </svg>
+  );
+}
+
+function IconWarehouse({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.25a.75.75 0 01-.75-.75V8.25a.75.75 0 01.405-.668l7.5-3.75a.75.75 0 01.69 0l7.5 3.75a.75.75 0 01.405.668V20.25a.75.75 0 01-.75.75h-4.5M10.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21" />
+    </svg>
+  );
+}
+
+function IconShield({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    </svg>
+  );
+}
+
+function IconBell({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    </svg>
+  );
+}
+
+function IconArrowUpRight({ className = "w-3 h-3" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+    </svg>
+  );
+}
+
+function IconWallet({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0zM12 7.5v9m-3.75-6h7.5" />
+    </svg>
+  );
+}
+
+function IconAlertTriangle({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+    </svg>
+  );
+}
+
+function IconPlus({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+  );
+}
+
 export default function WebAdminDashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [activeRole, setActiveRole] = useState<Role>("owner");
@@ -42,8 +131,8 @@ export default function WebAdminDashboard() {
       <div className="min-h-screen bg-[#0d3b33] flex items-center justify-center p-6 font-sans text-slate-800">
         <div className="w-full max-w-md p-8 rounded-3xl bg-white shadow-2xl border border-emerald-900/10">
           <div className="flex items-center gap-3 mb-6">
-            <div className="h-11 w-11 rounded-2xl bg-[#004D40] flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-emerald-900/20">
-              ⚡
+            <div className="h-11 w-11 rounded-2xl bg-[#004D40] flex items-center justify-center text-white font-extrabold shadow-lg shadow-emerald-900/20">
+              <IconLogo className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-xl font-black text-[#004D40]">Vetecura IMS</h1>
@@ -89,7 +178,7 @@ export default function WebAdminDashboard() {
     );
   }
 
-  // --- REDESIGNED TALENTASYNC DASHBOARD DESIGN ---
+  // --- REDESIGNED EXECUTIVE DASHBOARD WITH VECTOR SVG ICON PACK ---
   return (
     <div className="min-h-screen bg-[#f3f6f4] font-sans text-slate-800 antialiased pb-12">
       {/* TOP HEADER CONTAINER (Deep Emerald Green Header) */}
@@ -98,20 +187,20 @@ export default function WebAdminDashboard() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-emerald-800/40 pb-5">
           {/* Logo Brand */}
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-white font-extrabold text-lg">
-              ⚡
+            <div className="h-9 w-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-white">
+              <IconLogo className="w-5 h-5" />
             </div>
             <span className="font-extrabold text-xl tracking-tight text-white">Vetecura</span>
           </div>
 
-          {/* Center Pill Navbar */}
+          {/* Center Pill Navbar with Vector SVG Icons */}
           <nav className="flex items-center bg-[#072a24] p-1.5 rounded-full border border-emerald-800/50 shadow-inner">
             {[
-              { id: "dashboard", label: "Dashboard", icon: "📊" },
-              { id: "inbound", label: "Inbound GRN", icon: "📦" },
-              { id: "dispatch", label: "Dispatch", icon: "🚚" },
-              { id: "inventory", label: "Inventory", icon: "🏬" },
-              { id: "reports", label: "Reports", icon: "🛡️" },
+              { id: "dashboard", label: "Dashboard", icon: <IconGrid className="w-4 h-4" /> },
+              { id: "inbound", label: "Inbound GRN", icon: <IconBox className="w-4 h-4" /> },
+              { id: "dispatch", label: "Dispatch", icon: <IconTruck className="w-4 h-4" /> },
+              { id: "inventory", label: "Inventory", icon: <IconWarehouse className="w-4 h-4" /> },
+              { id: "reports", label: "Reports", icon: <IconShield className="w-4 h-4" /> },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -122,8 +211,8 @@ export default function WebAdminDashboard() {
                     : "text-emerald-200/70 hover:text-white"
                 }`}
               >
-                <span>{tab.icon}</span>
-                {tab.label}
+                {tab.icon}
+                <span>{tab.label}</span>
               </button>
             ))}
           </nav>
@@ -145,8 +234,8 @@ export default function WebAdminDashboard() {
               ))}
             </div>
 
-            <button title="Notifications" className="h-9 w-9 rounded-full bg-[#185348] hover:bg-emerald-700/50 border border-emerald-700/50 flex items-center justify-center text-xs text-white">
-              🔔
+            <button title="Notifications" className="h-9 w-9 rounded-full bg-[#185348] hover:bg-emerald-700/50 border border-emerald-700/50 flex items-center justify-center text-white">
+              <IconBell className="w-4 h-4" />
             </button>
 
             {/* User Profile Avatar Pill */}
@@ -190,16 +279,16 @@ export default function WebAdminDashboard() {
 
       {/* MAIN CONTAINER (OVERLAPPING METRIC CARDS) */}
       <main className="max-w-7xl mx-auto px-6 md:px-12 -mt-12 space-y-6">
-        {/* ROW 1: TOP STATS METRIC CARDS */}
+        {/* ROW 1: TOP STATS METRIC CARDS WITH SVG ICONS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Card 1 */}
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
             <div className="flex justify-between items-center">
-              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center text-sm">
-                💼
+              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
+                <IconWallet className="w-5 h-5" />
               </div>
-              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
-                ↗
+              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+                <IconArrowUpRight />
               </span>
             </div>
             <div className="mt-4">
@@ -216,11 +305,11 @@ export default function WebAdminDashboard() {
           {/* Card 2 */}
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
             <div className="flex justify-between items-center">
-              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center text-sm">
-                📦
+              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
+                <IconBox className="w-5 h-5" />
               </div>
-              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
-                ↗
+              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+                <IconArrowUpRight />
               </span>
             </div>
             <div className="mt-4">
@@ -237,11 +326,11 @@ export default function WebAdminDashboard() {
           {/* Card 3 */}
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
             <div className="flex justify-between items-center">
-              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center text-sm">
-                🛡️
+              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
+                <IconShield className="w-5 h-5" />
               </div>
-              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
-                ↗
+              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+                <IconArrowUpRight />
               </span>
             </div>
             <div className="mt-4">
@@ -258,11 +347,11 @@ export default function WebAdminDashboard() {
           {/* Card 4 */}
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
             <div className="flex justify-between items-center">
-              <div className="h-9 w-9 rounded-full bg-amber-50 text-amber-800 flex items-center justify-center text-sm">
-                ⚠️
+              <div className="h-9 w-9 rounded-full bg-amber-50 text-amber-800 flex items-center justify-center">
+                <IconAlertTriangle className="w-5 h-5" />
               </div>
-              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
-                ↗
+              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-slate-400">
+                <IconArrowUpRight />
               </span>
             </div>
             <div className="mt-4">
@@ -278,8 +367,8 @@ export default function WebAdminDashboard() {
 
           {/* Card 5: Add Widget Action Card */}
           <div className="bg-white p-5 rounded-3xl shadow-sm border border-dashed border-slate-300 flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500 transition-all">
-            <div className="h-11 w-11 rounded-full bg-[#0b3c34] text-white flex items-center justify-center text-xl font-bold shadow-md shadow-emerald-950/20 mb-2">
-              +
+            <div className="h-11 w-11 rounded-full bg-[#0b3c34] text-white flex items-center justify-center shadow-md shadow-emerald-950/20 mb-2">
+              <IconPlus className="w-5 h-5" />
             </div>
             <span className="text-xs font-bold text-slate-700">Add new widget</span>
           </div>
@@ -302,13 +391,13 @@ export default function WebAdminDashboard() {
 
             <div className="space-y-3">
               {[
-                { name: "Senior Vaccine Batch A", type: "Cold-Chain Outbound", icon: "💉", color: "bg-red-500" },
-                { name: "Vitamin D3 Softgels", type: "Standard Dispatch", icon: "💊", color: "bg-blue-500" },
-                { name: "Surgical Gloves Pack", type: "Bulk Outbound", icon: "🧤", color: "bg-emerald-500" },
-                { name: "Antiseptic Solution 1L", type: "Hazardous Outbound", icon: "🧪", color: "bg-amber-500" },
+                { name: "Senior Vaccine Batch A", type: "Cold-Chain Outbound", icon: <IconBox className="w-5 h-5 text-blue-600" /> },
+                { name: "Vitamin D3 Softgels", type: "Standard Dispatch", icon: <IconTruck className="w-5 h-5 text-emerald-600" /> },
+                { name: "Surgical Gloves Pack", type: "Bulk Outbound", icon: <IconWarehouse className="w-5 h-5 text-purple-600" /> },
+                { name: "Antiseptic Solution 1L", type: "Hazardous Outbound", icon: <IconShield className="w-5 h-5 text-amber-600" /> },
               ].map((item, idx) => (
                 <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 hover:bg-slate-100/80 transition-colors">
-                  <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-lg shadow-sm">
+                  <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
                     {item.icon}
                   </div>
                   <div className="flex-1">
@@ -332,14 +421,14 @@ export default function WebAdminDashboard() {
 
             <div className="space-y-3">
               {[
-                { name: "Ruben Philips", title: "Damage Write-Off", time: "Mon 12, 2026 - 10:00 AM", avatar: "👨🏻‍💼" },
-                { name: "Emery Donin", title: "PO #2026-0041 Approval", time: "Mon 12, 2026 - 10:30 AM", avatar: "👩🏽‍💼" },
-                { name: "Charlie Korsgaard", title: "Cycle Count Variance", time: "Mon 12, 2026 - 11:15 AM", avatar: "👨🏼‍💼" },
-                { name: "Ryan Vaccaro", title: "GRN Gate Entry Sign-Off", time: "Mon 12, 2026 - 11:45 AM", avatar: "👨🏻‍💻" },
+                { name: "Ruben Philips", title: "Damage Write-Off", time: "Mon 12, 2026 - 10:00 AM", avatar: "RP" },
+                { name: "Emery Donin", title: "PO #2026-0041 Approval", time: "Mon 12, 2026 - 10:30 AM", avatar: "ED" },
+                { name: "Charlie Korsgaard", title: "Cycle Count Variance", time: "Mon 12, 2026 - 11:15 AM", avatar: "CK" },
+                { name: "Ryan Vaccaro", title: "GRN Gate Entry Sign-Off", time: "Mon 12, 2026 - 11:45 AM", avatar: "RV" },
               ].map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-lg">
+                    <div className="h-10 w-10 rounded-full bg-[#0b3c34] text-emerald-300 font-bold text-xs flex items-center justify-center">
                       {item.avatar}
                     </div>
                     <div>
