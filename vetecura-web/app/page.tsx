@@ -120,8 +120,8 @@ export default function WebAdminDashboard() {
   // --- LOGIN SCREEN ---
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-[#062923] flex items-center justify-center p-6 font-sans text-slate-800">
-        <div className="w-full max-w-md p-8 rounded-3xl bg-white shadow-2xl border border-emerald-900/10">
+      <div className="min-h-screen bg-[#062923] flex items-center justify-center p-4 sm:p-6 font-sans text-slate-800">
+        <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl bg-white shadow-2xl border border-emerald-900/10">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-11 w-11 rounded-2xl bg-[#0b3c34] flex items-center justify-center text-white font-extrabold shadow-lg shadow-emerald-900/20">
               <IconLogo className="w-6 h-6" />
@@ -170,23 +170,50 @@ export default function WebAdminDashboard() {
     );
   }
 
-  // --- FULL MULTI-PAGE WEB ADMIN SYSTEM ---
+  // --- MOBILE-OPTIMIZED FULL SYSTEM ---
   return (
     <div className="min-h-screen bg-[#f3f6f4] font-sans text-slate-800 antialiased pb-12">
       {/* TOP HEADER CONTAINER */}
-      <header className="bg-[#052620] text-white px-6 md:px-12 pt-6 pb-20 shadow-md">
+      <header className="bg-[#052620] text-white px-4 sm:px-6 md:px-12 pt-4 sm:pt-6 pb-16 sm:pb-20 shadow-md">
         {/* Top Header Bar */}
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-emerald-800/40 pb-5">
-          {/* 1. Logo Brand */}
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shadow-md">
-              <IconLogo className="w-5 h-5" />
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 border-b border-emerald-800/40 pb-4 sm:pb-5">
+          
+          {/* Top Row for Mobile (Logo + Actions) */}
+          <div className="flex items-center justify-between">
+            {/* Logo Brand */}
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shadow-md">
+                <IconLogo className="w-5 h-5" />
+              </div>
+              <span className="font-black text-xl sm:text-2xl tracking-tight text-white">Vetecura</span>
             </div>
-            <span className="font-black text-2xl tracking-tight text-white">Vetecura</span>
+
+            {/* Mobile Actions (Bell + Profile + Sign Out) */}
+            <div className="flex md:hidden items-center gap-2">
+              <button
+                title="Notifications"
+                className="relative h-9 w-9 rounded-full bg-[#0a3830] border border-emerald-600/50 flex items-center justify-center text-white shrink-0"
+              >
+                <IconBell className="w-4 h-4" />
+                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-400"></span>
+              </button>
+
+              <div className="h-8 w-8 rounded-full bg-[#00a884] text-slate-950 font-black text-xs flex items-center justify-center uppercase shadow-sm shrink-0">
+                {userName.charAt(0)}
+              </div>
+
+              <button
+                onClick={() => setIsLoggedIn(false)}
+                title="Sign Out"
+                className="h-9 w-9 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-200 shrink-0"
+              >
+                <IconLogout className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          {/* 2. Center Navigation Pill Bar */}
-          <nav className="flex items-center bg-[#021814] p-1.5 rounded-full border border-emerald-700/60 shadow-inner overflow-x-auto">
+          {/* Center Navigation Pill Bar (Smooth Horizontal Scroll on Mobile) */}
+          <nav className="flex items-center bg-[#021814] p-1.5 rounded-full border border-emerald-700/60 shadow-inner overflow-x-auto max-w-full">
             {[
               { id: "dashboard", label: "Dashboard", icon: <IconGrid className="w-4 h-4" /> },
               { id: "inbound", label: "Inbound GRN", icon: <IconBox className="w-4 h-4" /> },
@@ -197,7 +224,7 @@ export default function WebAdminDashboard() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as NavTab)}
-                className={`flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-full transition-all whitespace-nowrap ${
+                className={`flex items-center gap-2 px-4 sm:px-5 py-2 text-xs font-bold rounded-full transition-all whitespace-nowrap ${
                   activeTab === tab.id
                     ? "bg-[#00a884] text-slate-950 shadow-lg shadow-emerald-500/20 font-black"
                     : "text-emerald-100/80 hover:text-white hover:bg-emerald-900/40"
@@ -209,8 +236,8 @@ export default function WebAdminDashboard() {
             ))}
           </nav>
 
-          {/* 3. Right Control Bar: Notifications + User Profile + Sign Out */}
-          <div className="flex items-center gap-3">
+          {/* Desktop Right Control Bar */}
+          <div className="hidden md:flex items-center gap-3">
             <button
               title="Notifications"
               className="relative h-10 w-10 rounded-full bg-[#0a3830] hover:bg-emerald-700/50 border border-emerald-600/50 flex items-center justify-center text-white transition-colors shrink-0"
@@ -240,7 +267,7 @@ export default function WebAdminDashboard() {
         </div>
 
         {/* Subheader Greeting Bar */}
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center mt-6">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 sm:mt-6 gap-3">
           <div>
             <p className="text-xs font-bold text-emerald-300/90 tracking-wide uppercase">
               {activeTab === "dashboard" && "Good Morning,"}
@@ -249,7 +276,7 @@ export default function WebAdminDashboard() {
               {activeTab === "inventory" && "Module 04 • Physical Warehouse Racks"}
               {activeTab === "reports" && "Module 05 • Immutable Audit & Anti-Theft"}
             </p>
-            <h1 className="text-3xl font-black text-white tracking-tight mt-0.5 capitalize">
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-0.5 capitalize">
               {activeTab === "dashboard" && userName}
               {activeTab === "inbound" && "Inbound Goods Received (GRN)"}
               {activeTab === "dispatch" && "Outbound Dispatch Verification"}
@@ -258,11 +285,11 @@ export default function WebAdminDashboard() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-3 mt-4 md:mt-0">
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#0a3830] hover:bg-emerald-700/50 border border-emerald-600/50 text-white rounded-full text-xs font-bold">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <button className="flex items-center gap-2 px-3.5 py-2 bg-[#0a3830] hover:bg-emerald-700/50 border border-emerald-600/50 text-white rounded-full text-xs font-bold">
               📅 <span>2026</span> ▼
             </button>
-            <button className="px-5 py-2.5 bg-white text-[#052620] hover:bg-emerald-50 text-xs font-black rounded-full shadow-lg shadow-black/10 transition-all">
+            <button className="px-4 sm:px-5 py-2 sm:py-2.5 bg-white text-[#052620] hover:bg-emerald-50 text-xs font-black rounded-full shadow-lg shadow-black/10 transition-all">
               Export Audit Data
             </button>
           </div>
@@ -270,13 +297,13 @@ export default function WebAdminDashboard() {
       </header>
 
       {/* DYNAMIC MAIN WORKSPACE CONTENT */}
-      <main className="max-w-7xl mx-auto px-6 md:px-12 -mt-12 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 -mt-10 sm:-mt-12 space-y-6">
         {/* ----------------- TAB 1: DASHBOARD OVERVIEW ----------------- */}
         {activeTab === "dashboard" && (
           <>
-            {/* STATS ROW */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+            {/* STATS ROW (1-col mobile, 2-col tablet, 5-col desktop) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+              <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
                 <div className="flex justify-between items-center">
                   <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
                     <IconWallet className="w-5 h-5" />
@@ -285,16 +312,16 @@ export default function WebAdminDashboard() {
                     <IconArrowUpRight />
                   </span>
                 </div>
-                <div className="mt-4">
+                <div className="mt-3 sm:mt-4">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-slate-900">$150,000</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900">$150,000</span>
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">+4.2%</span>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-1">Total Inventory</p>
                 </div>
               </div>
 
-              <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+              <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
                 <div className="flex justify-between items-center">
                   <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
                     <IconBox className="w-5 h-5" />
@@ -303,16 +330,16 @@ export default function WebAdminDashboard() {
                     <IconArrowUpRight />
                   </span>
                 </div>
-                <div className="mt-4">
+                <div className="mt-3 sm:mt-4">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-slate-900">12,450</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900">12,450</span>
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">+5.03%</span>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-1">Units Dispatched</p>
                 </div>
               </div>
 
-              <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+              <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
                 <div className="flex justify-between items-center">
                   <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center">
                     <IconShield className="w-5 h-5" />
@@ -321,16 +348,16 @@ export default function WebAdminDashboard() {
                     <IconArrowUpRight />
                   </span>
                 </div>
-                <div className="mt-4">
+                <div className="mt-3 sm:mt-4">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-slate-900">0</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900">0</span>
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">Verified</span>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-1">Audit Anomalies</p>
                 </div>
               </div>
 
-              <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+              <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
                 <div className="flex justify-between items-center">
                   <div className="h-9 w-9 rounded-full bg-amber-50 text-amber-800 flex items-center justify-center">
                     <IconAlertTriangle className="w-5 h-5" />
@@ -339,17 +366,17 @@ export default function WebAdminDashboard() {
                     <IconArrowUpRight />
                   </span>
                 </div>
-                <div className="mt-4">
+                <div className="mt-3 sm:mt-4">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-slate-900">1 Batch</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900">1 Batch</span>
                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">Risk 20</span>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-1">Expiry Risk Alerts</p>
                 </div>
               </div>
 
-              <div className="bg-white p-5 rounded-3xl shadow-sm border border-dashed border-slate-300 flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500 transition-all">
-                <div className="h-11 w-11 rounded-full bg-[#052620] text-white flex items-center justify-center shadow-md shadow-emerald-950/20 mb-2">
+              <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-sm border border-dashed border-slate-300 flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500 transition-all">
+                <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-[#052620] text-white flex items-center justify-center shadow-md shadow-emerald-950/20 mb-2">
                   <IconPlus className="w-5 h-5" />
                 </div>
                 <span className="text-xs font-bold text-slate-700">Add new widget</span>
@@ -357,8 +384,8 @@ export default function WebAdminDashboard() {
             </div>
 
             {/* THREE COLUMN SECTION */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-base font-extrabold text-slate-900">Active Dispatches</h3>
@@ -372,11 +399,11 @@ export default function WebAdminDashboard() {
                     { name: "Surgical Gloves Pack", type: "Bulk Outbound", icon: <IconWarehouse className="w-5 h-5 text-purple-600" /> },
                   ].map((item, idx) => (
                     <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50">
-                      <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                      <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm shrink-0">
                         {item.icon}
                       </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-bold text-slate-900">{item.name}</p>
+                      <div className="flex-1 truncate">
+                        <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
                         <p className="text-[10px] font-medium text-slate-400">{item.type}</p>
                       </div>
                     </div>
@@ -384,11 +411,11 @@ export default function WebAdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-base font-extrabold text-slate-900">Pending Approvals</h3>
-                    <p className="text-xs font-bold text-slate-400 mt-0.5">2 Items Requiring Manager Sign-Off</p>
+                    <p className="text-xs font-bold text-slate-400 mt-0.5">2 Items Requiring Sign-Off</p>
                   </div>
                 </div>
                 <div className="space-y-3">
@@ -397,22 +424,22 @@ export default function WebAdminDashboard() {
                     { name: "Emery Donin", title: "PO #2026-0041 Approval", time: "10:30 AM", avatar: "ED" },
                   ].map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-[#052620] text-emerald-300 font-bold text-xs flex items-center justify-center">
+                      <div className="flex items-center gap-3 truncate">
+                        <div className="h-9 w-9 rounded-full bg-[#052620] text-emerald-300 font-bold text-xs flex items-center justify-center shrink-0">
                           {item.avatar}
                         </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-900">{item.name}</p>
-                          <p className="text-[10px] font-medium text-slate-400">{item.title}</p>
+                        <div className="truncate">
+                          <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
+                          <p className="text-[10px] font-medium text-slate-400 truncate">{item.title}</p>
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 text-[9px] font-semibold text-slate-600 bg-slate-200/70 rounded-full">{item.time}</span>
+                      <span className="px-2.5 py-1 text-[9px] font-semibold text-slate-600 bg-slate-200/70 rounded-full shrink-0">{item.time}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-base font-extrabold text-slate-900">Rack Occupancy</h3>
@@ -438,20 +465,20 @@ export default function WebAdminDashboard() {
         {/* ----------------- TAB 2: INBOUND GRN PAGE ----------------- */}
         {activeTab === "inbound" && (
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 flex justify-between items-center">
+            <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <h2 className="text-lg font-black text-slate-900">Active Inbound Shipments & PO Ingestion</h2>
                 <p className="text-xs text-slate-400">Scan incoming goods to generate 100% item-level barcode tracking.</p>
               </div>
-              <button className="px-5 py-2.5 bg-[#00a884] text-slate-950 text-xs font-black rounded-full shadow-md">
+              <button className="px-5 py-2.5 bg-[#00a884] text-slate-950 text-xs font-black rounded-full shadow-md w-full sm:w-auto">
                 + Register New Gate Entry
               </button>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80">
+            <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80">
               <h3 className="text-sm font-extrabold text-slate-900 mb-4 uppercase tracking-wider">Approved Purchase Orders Ready for GRN</h3>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm min-w-[550px]">
                   <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
                       <th className="p-3">PO Number</th>
@@ -486,20 +513,20 @@ export default function WebAdminDashboard() {
         {/* ----------------- TAB 3: DISPATCH PAGE ----------------- */}
         {activeTab === "dispatch" && (
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 flex justify-between items-center">
+            <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <h2 className="text-lg font-black text-slate-900">Outbound Dispatch & FEFO Verification</h2>
                 <p className="text-xs text-slate-400">Hard-blocked validation prevents non-scanned or mismatched dispatches.</p>
               </div>
-              <button className="px-5 py-2.5 bg-[#052620] text-white text-xs font-black rounded-full shadow-md">
+              <button className="px-5 py-2.5 bg-[#052620] text-white text-xs font-black rounded-full shadow-md w-full sm:w-auto">
                 + Generate FEFO Pick List
               </button>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80">
+            <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80">
               <h3 className="text-sm font-extrabold text-slate-900 mb-4 uppercase tracking-wider">Active Sales Order Dispatch Scans</h3>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm min-w-[550px]">
                   <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
                       <th className="p-3">Sales Order ID</th>
@@ -534,20 +561,20 @@ export default function WebAdminDashboard() {
         {/* ----------------- TAB 4: INVENTORY PAGE ----------------- */}
         {activeTab === "inventory" && (
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 flex justify-between items-center">
+            <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <h2 className="text-lg font-black text-slate-900">Physical Warehouse Rack Map & Capacity</h2>
                 <p className="text-xs text-slate-400">Consolidation-first algorithm optimizes rack storage and stock placement.</p>
               </div>
-              <button className="px-5 py-2.5 bg-[#052620] text-white text-xs font-black rounded-full shadow-md">
+              <button className="px-5 py-2.5 bg-[#052620] text-white text-xs font-black rounded-full shadow-md w-full sm:w-auto">
                 + Schedule Cycle Count Audit
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-extrabold text-slate-900">Rack A-01 (High Velocity)</h3>
+                  <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">Rack A-01 (High Velocity)</h3>
                   <span className="text-xs font-bold text-emerald-600">90% Capacity</span>
                 </div>
                 <p className="text-xs text-slate-400">Contains: Vitamin D3 (450 units), Amoxicillin 500mg (200 units)</p>
@@ -556,9 +583,9 @@ export default function WebAdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-extrabold text-slate-900">Rack B-12 (Cold Chain)</h3>
+                  <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">Rack B-12 (Cold Chain)</h3>
                   <span className="text-xs font-bold text-amber-600">98% Capacity</span>
                 </div>
                 <p className="text-xs text-slate-400">Contains: Senior Rabies Vaccine (777 units)</p>
@@ -567,9 +594,9 @@ export default function WebAdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
+              <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-extrabold text-slate-900">Damage Hold Warehouse</h3>
+                  <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">Damage Hold Warehouse</h3>
                   <span className="text-xs font-bold text-red-600">3 Damaged Bottles</span>
                 </div>
                 <p className="text-xs text-slate-400">Requires Manager write-off approval with photo proof</p>
@@ -584,20 +611,20 @@ export default function WebAdminDashboard() {
         {/* ----------------- TAB 5: REPORTS & AUDIT PAGE ----------------- */}
         {activeTab === "reports" && (
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 flex justify-between items-center">
+            <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <h2 className="text-lg font-black text-slate-900">Immutable Audit Ledger & Compliance Reports</h2>
                 <p className="text-xs text-slate-400">Cryptographic SHA-256 hash-chain guarantees 0 un-audited stock edits.</p>
               </div>
-              <button className="px-5 py-2.5 bg-[#00a884] text-slate-950 text-xs font-black rounded-full shadow-md">
+              <button className="px-5 py-2.5 bg-[#00a884] text-slate-950 text-xs font-black rounded-full shadow-md w-full sm:w-auto">
                 🔍 Verify Ledger Hash Chain
               </button>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80">
+            <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80">
               <h3 className="text-sm font-extrabold text-slate-900 mb-4 uppercase tracking-wider">Latest Cryptographic Audit Entries</h3>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-mono">
+                <table className="w-full text-left text-xs font-mono min-w-[600px]">
                   <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
                       <th className="p-3">Timestamp</th>
