@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: vetecura_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: vetecura
+      POSTGRES_USER: vetecura_app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-vetecura_secure_pass_2026}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetecura_app -d vetecura"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: vetecura_redis
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vetecura_backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vetecura_app:${DB_PASSWORD:-vetecura_secure_pass_2026}@postgres:5432/vetecura
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-vetecura_production_secret_key_change_in_prod}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  telegram_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vetecura_telegram_worker
+    restart: always
+    command: python -m src.core.telegram_worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vetecura_app:${DB_PASSWORD:-vetecura_secure_pass_2026}@postgres:5432/vetecura
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - backend
+
+  web_admin:
+    build:
+      context: ./vetecura-web
+      dockerfile: Dockerfile
+    container_name: vetecura_web_admin
+    restart: always
+    ports:
+      - "3000:3000"
+
+  pwa_scanner:
+    build:
+      context: ./vetecura-pwa
+      dockerfile: Dockerfile
+    container_name: vetecura_pwa_scanner
+    restart: always
+    ports:
+      - "5173:80"
+
+  nginx_gateway:
+    image: nginx:alpine
+    container_name: vetecura_gateway
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - web_admin
+      - pwa_scanner
+
+volumes:
+  pgdata:
+  redisdata:
