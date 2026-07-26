@@ -1,13 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './index.css';
 
 export default function App() {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [scannedCount, setScannedCount] = useState(342);
   const totalExpected = 500;
   const [isOnline, setIsOnline] = useState(true);
   const [queuedCount, setQueuedCount] = useState(0);
   const [flashClass, setFlashClass] = useState('');
   const [lastScanned, setLastScanned] = useState('VET-VD2207-000123');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   const triggerScan = () => {
     // Simulate random scan result (80% success, 20% duplicate/rejected)
@@ -35,16 +44,23 @@ export default function App() {
 
   return (
     <div className={`pwa-container ${flashClass}`}>
-      {/* Header with persistent offline status indicator */}
+      {/* Header with persistent offline status indicator & theme toggle */}
       <header className="pwa-header">
-        <h1 className="pwa-title">Vetecura PWA Scanner</h1>
-        <button
-          className={`status-badge ${isOnline ? 'online' : 'offline'}`}
-          onClick={toggleConnection}
-          title="Click to toggle connection state for testing"
-        >
-          <span>{isOnline ? '🟢 Synced' : `⚠️ Offline (${queuedCount})`}</span>
-        </button>
+        <h1 className="pwa-title">Vetecura PWA</h1>
+        
+        <div className="header-actions">
+          <button className="theme-toggle-btn" onClick={toggleTheme} title="Toggle Light/Dark Theme">
+            {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+          </button>
+          
+          <button
+            className={`status-badge ${isOnline ? 'online' : 'offline'}`}
+            onClick={toggleConnection}
+            title="Click to toggle connection state for testing"
+          >
+            <span>{isOnline ? '🟢 Synced' : `⚠️ Offline (${queuedCount})`}</span>
+          </button>
+        </div>
       </header>
 
       {/* Persistent Progress Indicator */}
@@ -61,8 +77,8 @@ export default function App() {
             style={{ width: `${(scannedCount / totalExpected) * 100}%` }}
           ></div>
         </div>
-        <div style={{ marginTop: '10px', fontSize: '0.85rem', color: '#64748b' }}>
-          Last item: <span style={{ color: '#0f172a', fontWeight: 600 }}>{lastScanned}</span>
+        <div style={{ marginTop: '10px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          Last item: <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{lastScanned}</span>
         </div>
       </div>
 
@@ -79,7 +95,7 @@ export default function App() {
           </svg>
           <span>TAP TO SCAN</span>
         </button>
-        <p style={{ marginTop: '24px', color: '#64748b', fontSize: '0.9rem', fontWeight: 500 }}>
+        <p style={{ marginTop: '24px', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>
           Supports Camera + External USB/Bluetooth Scanner
         </p>
       </main>

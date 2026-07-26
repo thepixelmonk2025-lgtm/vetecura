@@ -1,4 +1,4 @@
-:root {
+:root, [data-theme="light"] {
   --bg-color: #f8fafc;
   --card-bg: #ffffff;
   --text-main: #0f172a;
@@ -10,6 +10,18 @@
   --border-color: #e2e8f0;
 }
 
+[data-theme="dark"] {
+  --bg-color: #0f172a;
+  --card-bg: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent-green: #22c55e;
+  --accent-red: #ef4444;
+  --accent-blue: #3b82f6;
+  --accent-amber: #f59e0b;
+  --border-color: #334155;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -18,6 +30,7 @@ body {
   color: var(--text-main);
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .pwa-container {
@@ -37,7 +50,7 @@ body {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--border-color);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .pwa-title {
@@ -45,6 +58,22 @@ body {
   font-weight: 700;
   margin: 0;
   color: var(--text-main);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-toggle-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 6px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
 }
 
 .status-badge {
@@ -60,13 +89,13 @@ body {
 }
 
 .status-badge.online {
-  background-color: #dcfce7;
-  color: #15803d;
+  background-color: rgba(34, 197, 94, 0.15);
+  color: var(--accent-green);
 }
 
 .status-badge.offline {
-  background-color: #fef3c7;
-  color: #b45309;
+  background-color: rgba(245, 158, 11, 0.15);
+  color: var(--accent-amber);
 }
 
 /* Progress card */
@@ -77,6 +106,7 @@ body {
   border-radius: 16px;
   border: 1px solid var(--border-color);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .progress-info {
@@ -100,7 +130,7 @@ body {
 
 .progress-track {
   height: 12px;
-  background-color: #f1f5f9;
+  background-color: var(--border-color);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -154,12 +184,12 @@ body {
 }
 
 @keyframes flashGreen {
-  0% { background-color: #bbf7d0; }
+  0% { background-color: var(--accent-green); }
   100% { background-color: var(--bg-color); }
 }
 
 @keyframes flashRed {
-  0% { background-color: #fecaca; }
+  0% { background-color: var(--accent-red); }
   100% { background-color: var(--bg-color); }
 }
 
@@ -170,6 +200,7 @@ body {
   display: flex;
   gap: 12px;
   border-top: 1px solid var(--border-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .btn-secondary {
@@ -177,7 +208,7 @@ body {
   height: 52px;
   border-radius: 12px;
   border: 1px solid var(--border-color);
-  background-color: #ffffff;
+  background-color: var(--card-bg);
   color: var(--text-main);
   font-size: 1rem;
   font-weight: 600;
