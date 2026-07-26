@@ -3,78 +3,83 @@
 import { useState } from "react";
 
 type Role = "owner" | "warehouse_manager" | "purchase_team";
-type Tab = "overview" | "inbound" | "dispatch" | "inventory" | "reports";
+type NavTab = "dashboard" | "inbound" | "dispatch" | "inventory" | "reports";
 
 export default function WebAdminDashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [userEmail, setUserEmail] = useState("owner@vetecura.com");
+  const [activeRole, setActiveRole] = useState<Role>("owner");
+  const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
+  const [userName, setUserName] = useState("Kennedy Jones");
+  const [userRoleTitle, setUserRoleTitle] = useState("Executive Owner");
+
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  const [activeRole, setActiveRole] = useState<Role>("owner");
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const [isDark, setIsDark] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) return;
-    setUserEmail(loginEmail);
+    setUserName(loginEmail.split("@")[0].replace(".", " "));
     setIsLoggedIn(true);
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setLoginEmail("");
-    setLoginPassword("");
+  const handleRoleChange = (role: Role) => {
+    setActiveRole(role);
+    if (role === "owner") {
+      setUserName("Kennedy Jones");
+      setUserRoleTitle("Executive Owner");
+    } else if (role === "warehouse_manager") {
+      setUserName("Ruben Philips");
+      setUserRoleTitle("Warehouse Manager");
+    } else {
+      setUserName("Emery Donin");
+      setUserRoleTitle("Purchase Lead");
+    }
   };
 
   // --- LOGIN SCREEN ---
   if (!isLoggedIn) {
     return (
-      <div className={`min-h-screen flex items-center justify-center p-6 ${isDark ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-900"}`}>
-        <div className={`w-full max-w-md p-8 rounded-3xl border shadow-2xl ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
+      <div className="min-h-screen bg-[#0d3b33] flex items-center justify-center p-6 font-sans text-slate-800">
+        <div className="w-full max-w-md p-8 rounded-3xl bg-white shadow-2xl border border-emerald-900/10">
           <div className="flex items-center gap-3 mb-6">
-            <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold text-lg shadow-lg shadow-blue-500/30">
-              V
+            <div className="h-11 w-11 rounded-2xl bg-[#004D40] flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-emerald-900/20">
+              ⚡
             </div>
             <div>
-              <h1 className="text-xl font-bold">Vetecura IMS</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Smart Barcode Inventory System</p>
+              <h1 className="text-xl font-black text-[#004D40]">Vetecura IMS</h1>
+              <p className="text-xs text-slate-500 font-medium">Smart Barcode Inventory System</p>
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold mb-1">Welcome back</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Sign in with your corporate credentials.</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h2>
+          <p className="text-xs text-slate-500 mb-6">Sign in to access your role workspace.</p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
               <input
                 type="email"
                 required
                 placeholder="manager@vetecura.com"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                className={`w-full px-4 py-3 text-sm rounded-xl border outline-none ${
-                  isDark ? "bg-slate-950 border-slate-800 focus:border-blue-500 text-white" : "bg-slate-50 border-slate-200 focus:border-blue-600 text-slate-900"
-                }`}
+                className="w-full px-4 py-3 text-sm rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:border-[#004D40] focus:bg-white transition-all"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Password</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Password</label>
               <input
                 type="password"
                 required
                 placeholder="••••••••"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
-                className={`w-full px-4 py-3 text-sm rounded-xl border outline-none ${
-                  isDark ? "bg-slate-950 border-slate-800 focus:border-blue-500 text-white" : "bg-slate-50 border-slate-200 focus:border-blue-600 text-slate-900"
-                }`}
+                className="w-full px-4 py-3 text-sm rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:border-[#004D40] focus:bg-white transition-all"
               />
             </div>
             <button
               type="submit"
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/30 transition-all mt-2"
+              className="w-full py-3.5 bg-[#004D40] hover:bg-[#00382f] text-white text-sm font-bold rounded-2xl shadow-lg shadow-emerald-900/20 transition-all mt-2"
             >
               Sign In
             </button>
@@ -84,241 +89,348 @@ export default function WebAdminDashboard() {
     );
   }
 
-  // --- REDESIGNED SAAS SIDEBAR LAYOUT ---
+  // --- REDESIGNED TALENTASYNC DASHBOARD DESIGN ---
   return (
-    <div className={`min-h-screen flex ${isDark ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900"}`}>
-      {/* LEFT SIDEBAR NAVIGATION */}
-      <aside className={`w-64 border-r flex flex-col justify-between p-5 ${isDark ? "bg-slate-900/80 border-slate-800" : "bg-white border-slate-200"}`}>
-        <div className="space-y-6">
+    <div className="min-h-screen bg-[#f3f6f4] font-sans text-slate-800 antialiased pb-12">
+      {/* TOP HEADER CONTAINER (Deep Emerald Green Header) */}
+      <header className="bg-[#0b3c34] text-white px-6 md:px-12 pt-6 pb-20 shadow-md">
+        {/* Top Header Bar */}
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-emerald-800/40 pb-5">
           {/* Logo Brand */}
-          <div className="flex items-center gap-3 px-2">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-blue-700 to-blue-500 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-500/25">
-              V
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-white font-extrabold text-lg">
+              ⚡
             </div>
-            <div>
-              <h1 className="font-extrabold text-base leading-tight tracking-tight">Vetecura IMS</h1>
-              <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-900">
-                Enterprise
-              </span>
-            </div>
+            <span className="font-extrabold text-xl tracking-tight text-white">Vetecura</span>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="space-y-1">
-            <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Main Menu</p>
+          {/* Center Pill Navbar */}
+          <nav className="flex items-center bg-[#072a24] p-1.5 rounded-full border border-emerald-800/50 shadow-inner">
             {[
-              { id: "overview", label: "Dashboard", icon: "📊" },
+              { id: "dashboard", label: "Dashboard", icon: "📊" },
               { id: "inbound", label: "Inbound GRN", icon: "📦" },
-              { id: "dispatch", label: "Outbound Dispatch", icon: "🚚" },
-              { id: "inventory", label: "Rack Inventory", icon: "🏬" },
-              { id: "reports", label: "Reports & Audit", icon: "🛡️" },
-            ].map((item) => (
+              { id: "dispatch", label: "Dispatch", icon: "🚚" },
+              { id: "inventory", label: "Inventory", icon: "🏬" },
+              { id: "reports", label: "Reports", icon: "🛡️" },
+            ].map((tab) => (
               <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id as Tab)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                  activeTab === item.id
-                    ? "bg-blue-600 text-white font-bold shadow-md shadow-blue-600/20"
-                    : isDark
-                    ? "text-slate-400 hover:bg-slate-800 hover:text-white"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as NavTab)}
+                className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-full transition-all ${
+                  activeTab === tab.id
+                    ? "bg-[#185348] text-white shadow-md font-bold"
+                    : "text-emerald-200/70 hover:text-white"
                 }`}
               >
-                <span className="text-base">{item.icon}</span>
-                {item.label}
+                <span>{tab.icon}</span>
+                {tab.label}
               </button>
             ))}
           </nav>
-        </div>
 
-        {/* User Account & Logout in Sidebar Footer */}
-        <div className={`p-3.5 rounded-2xl border ${isDark ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="h-9 w-9 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm shrink-0">
-                {userEmail.charAt(0).toUpperCase()}
+          {/* Right User Profile & Controls */}
+          <div className="flex items-center gap-3">
+            {/* Role Switcher Pill */}
+            <div className="flex items-center bg-[#072a24] p-1 rounded-full border border-emerald-800/50">
+              {(["owner", "warehouse_manager", "purchase_team"] as Role[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => handleRoleChange(r)}
+                  className={`px-3 py-1 text-[11px] font-semibold rounded-full capitalize transition-all ${
+                    activeRole === r ? "bg-emerald-500 text-white font-bold" : "text-emerald-300/70 hover:text-white"
+                  }`}
+                >
+                  {r.replace("_", " ")}
+                </button>
+              ))}
+            </div>
+
+            <button title="Notifications" className="h-9 w-9 rounded-full bg-[#185348] hover:bg-emerald-700/50 border border-emerald-700/50 flex items-center justify-center text-xs text-white">
+              🔔
+            </button>
+
+            {/* User Profile Avatar Pill */}
+            <div className="flex items-center gap-2.5 bg-[#185348] pl-2 pr-3 py-1 rounded-full border border-emerald-700/50">
+              <div className="h-7 w-7 rounded-full bg-emerald-400 text-emerald-950 font-black text-xs flex items-center justify-center uppercase">
+                {userName.charAt(0)}
               </div>
-              <div className="truncate">
-                <p className="text-xs font-bold truncate">{userEmail}</p>
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold capitalize">{activeRole.replace("_", " ")}</p>
+              <div className="text-left leading-tight hidden lg:block">
+                <p className="text-xs font-bold text-white leading-none">{userName}</p>
+                <p className="text-[10px] text-emerald-300 font-medium">{userRoleTitle}</p>
               </div>
             </div>
+
             <button
-              onClick={handleLogout}
+              onClick={() => setIsLoggedIn(false)}
               title="Sign Out"
-              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+              className="h-9 w-9 rounded-full bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 flex items-center justify-center text-xs text-red-200"
             >
               🚪
             </button>
           </div>
         </div>
-      </aside>
 
-      {/* RIGHT MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* TOP NAVBAR */}
-        <header className={`h-16 border-b px-8 flex items-center justify-between ${isDark ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-200"}`}>
-          {/* Search bar */}
-          <div className="relative w-80">
-            <input
-              type="text"
-              placeholder="Search products, SKUs, GRNs, barcodes..."
-              className={`w-full pl-9 pr-4 py-2 text-xs rounded-xl border outline-none transition-all ${
-                isDark ? "bg-slate-950 border-slate-800 text-white focus:border-blue-500" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600"
-              }`}
-            />
-            <span className="absolute left-3 top-2.5 text-xs text-slate-400">🔍</span>
+        {/* Good Morning Greeting Subheader */}
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center mt-6">
+          <div>
+            <p className="text-xs font-semibold text-emerald-300/80">Good Morning,</p>
+            <h1 className="text-3xl font-extrabold text-white tracking-tight mt-0.5">{userName}</h1>
           </div>
 
-          {/* Top Controls: Role Switcher + Dark Mode Toggle */}
-          <div className="flex items-center gap-4">
-            {/* Role Switcher */}
-            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-              <span className="text-[10px] font-bold text-slate-400 px-2 uppercase">Role:</span>
-              {(["owner", "warehouse_manager", "purchase_team"] as Role[]).map((role) => (
-                <button
-                  key={role}
-                  onClick={() => setActiveRole(role)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-all ${
-                    activeRole === role
-                      ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm font-bold"
-                      : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  {role.replace("_", " ")}
-                </button>
-              ))}
-            </div>
-
-            {/* Dark Mode Switcher */}
-            <button
-              onClick={() => setIsDark(!isDark)}
-              className={`p-2 text-xs rounded-xl border font-bold transition-all ${
-                isDark ? "bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm"
-              }`}
-            >
-              {isDark ? "☀️ Light" : "🌙 Dark"}
+          <div className="flex items-center gap-3 mt-4 md:mt-0">
+            <button className="flex items-center gap-2 px-4 py-2 bg-[#185348] hover:bg-emerald-700/50 border border-emerald-700/50 text-white rounded-full text-xs font-semibold">
+              📅 <span>2026</span> ▼
+            </button>
+            <button className="px-5 py-2.5 bg-white text-[#0b3c34] hover:bg-emerald-50 text-xs font-extrabold rounded-full shadow-lg shadow-black/10 transition-all">
+              Export Audit Data
             </button>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* WORKSPACE CONTENT */}
-        <main className="flex-1 p-8 space-y-8 overflow-y-auto">
-          {/* Header Title */}
-          <div className="flex justify-between items-end">
-            <div>
-              <h2 className="text-2xl font-black tracking-tight capitalize">
-                {activeRole.replace("_", " ")} Dashboard
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Real-time stock verification, audit logs, and operational controls.
-              </p>
+      {/* MAIN CONTAINER (OVERLAPPING METRIC CARDS) */}
+      <main className="max-w-7xl mx-auto px-6 md:px-12 -mt-12 space-y-6">
+        {/* ROW 1: TOP STATS METRIC CARDS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Card 1 */}
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+            <div className="flex justify-between items-center">
+              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center text-sm">
+                💼
+              </div>
+              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                ↗
+              </span>
             </div>
-            <div className="flex gap-2">
-              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 transition-all">
-                + Create GRN Inbound
-              </button>
+            <div className="mt-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900">$150,000</span>
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">
+                  +4.2%
+                </span>
+              </div>
+              <p className="text-xs font-medium text-slate-400 mt-1">Total Inventory</p>
             </div>
           </div>
 
-          {/* DASHBOARD CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-            <div className={`p-5 rounded-2xl border transition-all ${isDark ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Inventory Value</span>
-                <span className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 font-bold text-xs">💰</span>
+          {/* Card 2 */}
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+            <div className="flex justify-between items-center">
+              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center text-sm">
+                📦
               </div>
-              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-3">$150,000</p>
-              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1">↑ 4.2% from last month</p>
+              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                ↗
+              </span>
             </div>
-
-            <div className={`p-5 rounded-2xl border transition-all ${isDark ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dispatch Volume</span>
-                <span className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 font-bold text-xs">📦</span>
+            <div className="mt-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900">12,450</span>
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">
+                  +5.03%
+                </span>
               </div>
-              <p className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-3">12,450 units</p>
-              <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 mt-1">100% Barcode verified</p>
-            </div>
-
-            <div className={`p-5 rounded-2xl border transition-all ${isDark ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Security Anomalies</span>
-                <span className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 font-bold text-xs">🛡️</span>
-              </div>
-              <p className="text-2xl font-black mt-3">0</p>
-              <p className="text-[11px] font-semibold text-slate-400 mt-1">Hash-Chain Audit Verified</p>
-            </div>
-
-            <div className={`p-5 rounded-2xl border transition-all ${isDark ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Expiry Risk</span>
-                <span className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-600 font-bold text-xs">⚠️</span>
-              </div>
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-3">1 Batch</p>
-              <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 mt-1">Risk Score: 20.0</p>
+              <p className="text-xs font-medium text-slate-400 mt-1">Units Dispatched</p>
             </div>
           </div>
 
-          {/* SURFACED APPROVALS OR TABLE SECTION */}
-          {activeRole === "warehouse_manager" && (
-            <div className="p-6 rounded-2xl border bg-amber-500/10 border-amber-500/20">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-base font-bold text-amber-600 dark:text-amber-400">Surfaced Approvals Needed</h3>
-                  <p className="text-xs text-amber-700 dark:text-amber-300">Requires manager verification before system stock execution.</p>
-                </div>
-                <span className="px-2.5 py-1 bg-amber-500 text-white font-bold text-xs rounded-full">2 Pending</span>
+          {/* Card 3 */}
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+            <div className="flex justify-between items-center">
+              <div className="h-9 w-9 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center text-sm">
+                🛡️
               </div>
+              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                ↗
+              </span>
+            </div>
+            <div className="mt-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900">0</span>
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">
+                  Verified
+                </span>
+              </div>
+              <p className="text-xs font-medium text-slate-400 mt-1">Audit Anomalies</p>
+            </div>
+          </div>
 
-              <div className="space-y-3">
-                <div className={`p-4 rounded-xl border flex justify-between items-center ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-amber-200"}`}>
-                  <div>
-                    <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Damage Write-Off</span>
-                    <p className="text-sm font-bold mt-0.5">Damaged Vitamin D3 (Barcode #VET-VD2207-000004)</p>
-                    <p className="text-xs text-slate-400">Photo Proof Verified • Requested by Staff A</p>
+          {/* Card 4 */}
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+            <div className="flex justify-between items-center">
+              <div className="h-9 w-9 rounded-full bg-amber-50 text-amber-800 flex items-center justify-center text-sm">
+                ⚠️
+              </div>
+              <span className="h-6 w-6 rounded-full border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">
+                ↗
+              </span>
+            </div>
+            <div className="mt-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900">1 Batch</span>
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">
+                  Risk 20
+                </span>
+              </div>
+              <p className="text-xs font-medium text-slate-400 mt-1">Expiry Risk Alerts</p>
+            </div>
+          </div>
+
+          {/* Card 5: Add Widget Action Card */}
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-dashed border-slate-300 flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500 transition-all">
+            <div className="h-11 w-11 rounded-full bg-[#0b3c34] text-white flex items-center justify-center text-xl font-bold shadow-md shadow-emerald-950/20 mb-2">
+              +
+            </div>
+            <span className="text-xs font-bold text-slate-700">Add new widget</span>
+          </div>
+        </div>
+
+        {/* ROW 2: THREE-COLUMN GRID SECTION */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* COLUMN 1: ACTIVE DISPATCH ORDERS */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">Active Dispatches</h3>
+                <p className="text-xs font-bold text-slate-400 mt-0.5">24 Active Orders</p>
+              </div>
+              <div className="flex gap-1">
+                <button className="h-6 w-6 rounded-full border border-slate-200 text-xs text-slate-400">←</button>
+                <button className="h-6 w-6 rounded-full border border-slate-200 text-xs text-slate-400">→</button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { name: "Senior Vaccine Batch A", type: "Cold-Chain Outbound", icon: "💉", color: "bg-red-500" },
+                { name: "Vitamin D3 Softgels", type: "Standard Dispatch", icon: "💊", color: "bg-blue-500" },
+                { name: "Surgical Gloves Pack", type: "Bulk Outbound", icon: "🧤", color: "bg-emerald-500" },
+                { name: "Antiseptic Solution 1L", type: "Hazardous Outbound", icon: "🧪", color: "bg-amber-500" },
+              ].map((item, idx) => (
+                <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 hover:bg-slate-100/80 transition-colors">
+                  <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-lg shadow-sm">
+                    {item.icon}
                   </div>
-                  <div className="flex gap-2">
-                    <button className="px-3.5 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-xl shadow-sm hover:bg-emerald-700">Approve</button>
-                    <button className="px-3.5 py-1.5 text-xs font-bold border rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">Reject</button>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-slate-900">{item.name}</p>
+                    <p className="text-[10px] font-medium text-slate-400">{item.type}</p>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* DATA TABLE */}
-          <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
-            <h3 className="text-base font-bold mb-4">Vendor Performance & Stock Compliance</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className={`text-xs uppercase tracking-wider font-bold border-b ${isDark ? "bg-slate-950 text-slate-400 border-slate-800" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
-                  <tr>
-                    <th className="p-3.5">Supplier Name</th>
-                    <th className="p-3.5">On-Time Delivery</th>
-                    <th className="p-3.5">Rejection Rate</th>
-                    <th className="p-3.5">Audit Log Status</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${isDark ? "divide-slate-800" : "divide-slate-100"}`}>
-                  <tr>
-                    <td className="p-3.5 font-bold">PharmaCare Ltd</td>
-                    <td className="p-3.5 text-emerald-600 font-bold">98.5%</td>
-                    <td className="p-3.5">0.2%</td>
-                    <td className="p-3.5"><span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 font-bold rounded-lg text-xs">Verified</span></td>
-                  </tr>
-                  <tr>
-                    <td className="p-3.5 font-bold">MediSupply Global</td>
-                    <td className="p-3.5 text-amber-600 font-bold">89.0%</td>
-                    <td className="p-3.5 text-red-600 font-bold">2.1%</td>
-                    <td className="p-3.5"><span className="px-2.5 py-1 bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 font-bold rounded-lg text-xs">Under Review</span></td>
-                  </tr>
-                </tbody>
-              </table>
+              ))}
             </div>
           </div>
-        </main>
-      </div>
+
+          {/* COLUMN 2: SURFACED APPROVALS / PENDING SCANS */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">Pending Approvals</h3>
+                <p className="text-xs font-bold text-slate-400 mt-0.5">2 Items Requiring Manager Sign-Off</p>
+              </div>
+              <span className="text-slate-400 font-bold text-xs">•••</span>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { name: "Ruben Philips", title: "Damage Write-Off", time: "Mon 12, 2026 - 10:00 AM", avatar: "👨🏻‍💼" },
+                { name: "Emery Donin", title: "PO #2026-0041 Approval", time: "Mon 12, 2026 - 10:30 AM", avatar: "👩🏽‍💼" },
+                { name: "Charlie Korsgaard", title: "Cycle Count Variance", time: "Mon 12, 2026 - 11:15 AM", avatar: "👨🏼‍💼" },
+                { name: "Ryan Vaccaro", title: "GRN Gate Entry Sign-Off", time: "Mon 12, 2026 - 11:45 AM", avatar: "👨🏻‍💻" },
+              ].map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-lg">
+                      {item.avatar}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">{item.name}</p>
+                      <p className="text-[10px] font-medium text-slate-400">{item.title}</p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 text-[9px] font-semibold text-slate-600 bg-slate-200/70 rounded-full">
+                    {item.time}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* COLUMN 3: STOCK DISTRIBUTION STATUS */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">Rack Occupancy</h3>
+                <p className="text-xs font-bold text-slate-400 mt-0.5">Total Registered Stock</p>
+              </div>
+              <span className="text-xl font-black text-slate-900">3,109</span>
+            </div>
+
+            {/* Segmented Bar */}
+            <div className="flex h-3 w-full rounded-full overflow-hidden gap-1 bg-slate-100">
+              <div className="bg-[#0b3c34] w-[50%] h-full rounded-full"></div>
+              <div className="bg-[#185348] w-[25%] h-full rounded-full"></div>
+              <div className="bg-emerald-400 w-[15%] h-full rounded-full"></div>
+              <div className="bg-slate-300 w-[10%] h-full rounded-full"></div>
+            </div>
+
+            {/* Category breakdown list */}
+            <div className="space-y-3 pt-2">
+              {[
+                { label: "Rack A (High Velocity)", count: "1,554 units" },
+                { label: "Rack B (Cold Chain Storage)", count: "777 units" },
+                { label: "Rack C (Bulk Hold)", count: "466 units" },
+                { label: "Damage Hold Warehouse", count: "312 units" },
+              ].map((cat, idx) => (
+                <div key={idx} className="flex justify-between items-center text-xs font-semibold">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-[#0b3c34]"></span>
+                    <span className="text-slate-600">{cat.label}</span>
+                  </div>
+                  <span className="font-bold text-slate-900">{cat.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ROW 3: BOTTOM KPI & HEATMAP SECTION */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* KPI Percentage */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-2">
+            <h3 className="text-sm font-extrabold text-slate-400 uppercase tracking-wider">Average Barcode Accuracy KPI</h3>
+            <p className="text-4xl font-black text-slate-900">99,86%</p>
+            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden mt-3">
+              <div className="h-full bg-[#0b3c34] w-[99.86%]"></div>
+            </div>
+          </div>
+
+          {/* Audit Verification Heatmap Matrix */}
+          <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-extrabold text-slate-900">Daily Scan Activity Overview</h3>
+              <span className="text-xs text-slate-400 font-bold">2026 Log Matrix</span>
+            </div>
+
+            {/* Heatmap Dots Grid */}
+            <div className="grid grid-cols-16 gap-1.5 py-2">
+              {Array.from({ length: 48 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-4 w-4 rounded-md ${
+                    i % 5 === 0
+                      ? "bg-[#0b3c34]"
+                      : i % 3 === 0
+                      ? "bg-emerald-400"
+                      : i % 2 === 0
+                      ? "bg-emerald-200"
+                      : "bg-slate-100"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
