@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import LabelPreviewer from "@/components/LabelPreviewer";
 
 type NavTab = "dashboard" | "inbound" | "dispatch" | "inventory" | "reports";
 
@@ -342,14 +343,14 @@ export default function WebAdminDashboard() {
           <div>
             <p className="text-xs font-bold text-emerald-300/90 tracking-wide uppercase">
               {activeTab === "dashboard" && "Good Morning,"}
-              {activeTab === "inbound" && "Module 02 • Stock In Management"}
+              {activeTab === "inbound" && "Module 02 • Stock In & Label Printing"}
               {activeTab === "dispatch" && "Module 03 • Outbound Dispatch Engine"}
               {activeTab === "inventory" && "Module 04 • Physical Warehouse Racks"}
               {activeTab === "reports" && "Module 05 • Immutable Audit & Anti-Theft"}
             </p>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-0.5 capitalize">
               {activeTab === "dashboard" && userName}
-              {activeTab === "inbound" && "Inbound Goods Received (GRN)"}
+              {activeTab === "inbound" && "Inbound Goods Received & Thermal Labels"}
               {activeTab === "dispatch" && "Outbound Dispatch Verification"}
               {activeTab === "inventory" && "Rack & Stock Storage Map"}
               {activeTab === "reports" && "Audit Ledger & Telegram Logs"}
@@ -537,9 +538,12 @@ export default function WebAdminDashboard() {
           </>
         )}
 
-        {/* ----------------- TAB 2: INBOUND GRN PAGE ----------------- */}
+        {/* ----------------- TAB 2: INBOUND GRN & THERMAL LABEL PREVIEWER ----------------- */}
         {activeTab === "inbound" && (
           <div className="space-y-6">
+            {/* LIVE THERMAL LABEL GENERATOR */}
+            <LabelPreviewer />
+
             <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <h2 className="text-lg font-black text-slate-900">Active Inbound Shipments & PO Ingestion</h2>
