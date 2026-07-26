@@ -1,0 +1,238 @@
+"""Purchase Order API — /api/v1/purchase-orders"""
+from typing import Optional
+from uuid import UUID
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from pydantic import BaseModel, field_validator
+from src.db.session import get_db
+from src.api.deps import require_role, get_current_active_user
+from src.models.user import RoleEnum, User
+from src.models.inbound import PurchaseOrder, PurchaseOrderItem, POStatusEnum
+from src.models.audit import AuditLog
+
+router = APIRouter()
+
+
+# ── Schemas ────────────────────────────────────────────────────────────────
+
+class POItemCreate(BaseModel):
+    product_id: UUID
+    ordered_qty: int
+    unit_price: Optional[float] = None
+
+
+class POCreate(BaseModel):
+    supplier_id: UUID
+    items: list[POItemCreate]
+
+
+class POItemOut(BaseModel):
+    id: UUID
+    product_id: UUID
+    ordered_qty: int
+    unit_price: Optional[float]
+
+    class Config:
+        from_attributes = True
+
+
+class POOut(BaseModel):
+    id: UUID
+    po_number: str
+    supplier_id: UUID
+    status: str
+    created_by: UUID
+    approved_by: Optional[UUID]
+    approved_at: Optional[datetime]
+    created_at: datetime
+    items: list[POItemOut] = []
+
+    class Config:
+        from_attributes = True
+
+
+class PORejectBody(BaseModel):
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def reason_min_length(cls, v):
+        if len(v.strip()) < 10:
+            raise ValueError("Rejection reason must be at least 10 characters")
+        return v.strip()
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────
+
+def _next_po_number() -> str:
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    return f"PO-{ts}"
+
+
+async def _write_audit(db, user_id, action, entity_id, payload):
+    last = await db.execute(
+        select(AuditLog).order_by(AuditLog.id.desc()).limit(1)
+    )
+    last_log = last.scalar_one_or_none()
+    prev_hash = last_log.current_hash if last_log else "0" * 64
+
+    log = AuditLog(
+        user_id=user_id,
+        action=action,
+        entity_type="purchase_orders",
+        entity_id=entity_id,
+        changes=payload,
+        previous_hash=prev_hash,
+    )
+    log.current_hash = log.calculate_hash()
+    db.add(log)
+
+
+# ── Endpoints ──────────────────────────────────────────────────────────────
+
+@router.get("", response_model=list[POOut])
+async def list_purchase_orders(
+    status_filter: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([
+        RoleEnum.purchase_team, RoleEnum.warehouse_manager, RoleEnum.owner
+    ])),
+):
+    query = select(PurchaseOrder)
+    if status_filter:
+        query = query.where(PurchaseOrder.status == status_filter)
+    offset = (page - 1) * limit
+    result = await db.execute(query.offset(offset).limit(limit))
+    return result.scalars().all()
+
+
+@router.post("", response_model=POOut, status_code=status.HTTP_201_CREATED)
+async def create_purchase_order(
+    body: POCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.purchase_team, RoleEnum.owner])),
+):
+    po = PurchaseOrder(
+        po_number=_next_po_number(),
+        supplier_id=body.supplier_id,
+        status=POStatusEnum.draft,
+        created_by=current_user.id,
+    )
+    db.add(po)
+    await db.flush()
+
+    for item in body.items:
+        db.add(PurchaseOrderItem(
+            purchase_order_id=po.id,
+            product_id=item.product_id,
+            ordered_qty=item.ordered_qty,
+            unit_price=str(item.unit_price) if item.unit_price else None,
+        ))
+
+    await _write_audit(db, current_user.id, "po_drafted", po.id, {"po_number": po.po_number})
+    await db.commit()
+    await db.refresh(po)
+    return po
+
+
+@router.post("/{po_id}/submit", response_model=POOut)
+async def submit_purchase_order(
+    po_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.purchase_team, RoleEnum.owner])),
+):
+    result = await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id))
+    po = result.scalar_one_or_none()
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    if po.status != POStatusEnum.draft:
+        raise HTTPException(status_code=409, detail=f"Cannot submit PO with status '{po.status}'")
+
+    po.status = POStatusEnum.pending_approval
+    await _write_audit(db, current_user.id, "po_submitted", po.id, {"status": "pending_approval"})
+    await db.commit()
+    await db.refresh(po)
+    return po
+
+
+@router.post("/{po_id}/approve", response_model=POOut)
+async def approve_purchase_order(
+    po_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.warehouse_manager, RoleEnum.owner])),
+):
+    result = await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id))
+    po = result.scalar_one_or_none()
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    if po.status != POStatusEnum.pending_approval:
+        raise HTTPException(status_code=409, detail=f"Cannot approve PO with status '{po.status}'")
+
+    po.status = POStatusEnum.approved
+    po.approved_by = current_user.id
+    po.approved_at = datetime.now(timezone.utc)
+    await _write_audit(db, current_user.id, "po_approved", po.id, {"approved_by": str(current_user.id)})
+    await db.commit()
+    await db.refresh(po)
+    return po
+
+
+@router.post("/{po_id}/reject", response_model=POOut)
+async def reject_purchase_order(
+    po_id: UUID,
+    body: PORejectBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.warehouse_manager, RoleEnum.owner])),
+):
+    result = await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id))
+    po = result.scalar_one_or_none()
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    if po.status not in [POStatusEnum.pending_approval, POStatusEnum.draft]:
+        raise HTTPException(status_code=409, detail=f"Cannot reject PO with status '{po.status}'")
+
+    po.status = POStatusEnum.rejected
+    await _write_audit(db, current_user.id, "po_rejected", po.id, {"reason": body.reason})
+    await db.commit()
+    await db.refresh(po)
+    return po
+
+
+@router.get("/{po_id}", response_model=POOut)
+async def get_purchase_order(
+    po_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([
+        RoleEnum.purchase_team, RoleEnum.warehouse_manager, RoleEnum.owner
+    ])),
+):
+    result = await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id))
+    po = result.scalar_one_or_none()
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+
+    items_result = await db.execute(
+        select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == po_id)
+    )
+    items = items_result.scalars().all()
+
+    return POOut(
+        id=po.id,
+        po_number=po.po_number,
+        supplier_id=po.supplier_id,
+        status=po.status,
+        created_by=po.created_by,
+        approved_by=po.approved_by,
+        approved_at=po.approved_at,
+        created_at=po.created_at,
+        items=[POItemOut(
+            id=i.id,
+            product_id=i.product_id,
+            ordered_qty=i.ordered_qty,
+            unit_price=float(i.unit_price) if i.unit_price else None,
+        ) for i in items],
+    )
