@@ -25,6 +25,12 @@ app.include_router(writeoffs.router, prefix=f"{settings.API_V1_STR}/writeoffs", 
 app.include_router(returns.router, prefix=f"{settings.API_V1_STR}/returns", tags=["returns"])
 app.include_router(cycle_counts.router, prefix=f"{settings.API_V1_STR}/cycle-counts", tags=["cycle-counts"])
 
+# Phase 5: Alerts & Analytics
+from src.api.routers import notifications, reports
+app.include_router(notifications.router, prefix=f"{settings.API_V1_STR}/notifications", tags=["notifications"])
+app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags=["reports"])
+
+
 
 
 @app.get("/")
