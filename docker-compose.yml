@@ -45,8 +45,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "8000:8000"
 
   telegram_worker:
     build:
@@ -67,8 +65,6 @@ services:
       dockerfile: Dockerfile
     container_name: vetecura_web_admin
     restart: always
-    ports:
-      - "3000:3000"
 
   pwa_scanner:
     build:
@@ -76,8 +72,6 @@ services:
       dockerfile: Dockerfile
     container_name: vetecura_pwa_scanner
     restart: always
-    ports:
-      - "5173:80"
 
   nginx_gateway:
     image: nginx:alpine
