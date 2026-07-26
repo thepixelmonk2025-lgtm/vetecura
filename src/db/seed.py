@@ -4,7 +4,7 @@ from src.db.session import AsyncSessionLocal
 from src.models.user import User, RoleEnum
 from src.models.supplier import Supplier
 from src.models.product import Product
-from src.models.stock import Rack
+from src.models.inbound import Warehouse, Rack
 from src.core.security import get_password_hash
 
 async def seed_data():
@@ -59,17 +59,25 @@ async def seed_data():
                 db.add(p)
                 print(f"  + Product created: {sku} - {name}")
 
-        # 4. Racks
+        # 4. Warehouse & Racks
+        result = await db.execute(select(Warehouse).where(Warehouse.name == "Main Warehouse"))
+        main_wh = result.scalars().first()
+        if not main_wh:
+            main_wh = Warehouse(name="Main Warehouse", address="100 Logistics Blvd", is_damage_warehouse=False)
+            db.add(main_wh)
+            await db.flush()
+            print("  + Warehouse created: Main Warehouse")
+
         racks = [
-            ("Rack A-01", "High-velocity front rack", 500),
-            ("Rack B-12", "Cold-chain refrigerated rack", 200),
-            ("Damage Hold", "Quarantine hold warehouse", 50),
+            ("Rack A-01", 500, "RACK-A01-QR"),
+            ("Rack B-12", 200, "RACK-B12-QR"),
+            ("Damage Hold", 50, "RACK-DMG-QR"),
         ]
-        for code, desc, cap in racks:
+        for code, cap, qr_code in racks:
             result = await db.execute(select(Rack).where(Rack.code == code))
             existing = result.scalars().first()
             if not existing:
-                r = Rack(code=code, description=desc, capacity=cap)
+                r = Rack(warehouse_id=main_wh.id, code=code, capacity_units=cap, qr_label_code=qr_code)
                 db.add(r)
                 print(f"  + Rack created: {code}")
 
