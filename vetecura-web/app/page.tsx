@@ -6,11 +6,117 @@ type Role = "owner" | "warehouse_manager" | "purchase_team";
 type ThemeMode = "light" | "dark";
 
 export default function WebAdminDashboard() {
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [userEmail, setUserEmail] = useState("owner@vetecura.com");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [activeRole, setActiveRole] = useState<Role>("owner");
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
 
   const isDark = themeMode === "dark";
 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail || !loginPassword) return;
+    setUserEmail(loginEmail);
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setLoginEmail("");
+    setLoginPassword("");
+  };
+
+  // IF NOT LOGGED IN: SHOW LOGIN SCREEN
+  if (!isLoggedIn) {
+    return (
+      <div
+        className={`min-h-screen flex items-center justify-center p-6 font-sans antialiased transition-colors duration-300 ${
+          isDark ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900"
+        }`}
+      >
+        <div
+          className={`w-full max-w-md p-8 rounded-3xl border shadow-xl ${
+            isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
+          }`}
+        >
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-2">
+              <span className="bg-blue-600 text-white px-3 py-1 rounded-xl text-lg font-bold">
+                VET
+              </span>
+              <h1 className="text-xl font-extrabold tracking-tight">Vetecura Portal</h1>
+            </div>
+            <button
+              onClick={() => setThemeMode(isDark ? "light" : "dark")}
+              className="text-xs px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700"
+            >
+              {isDark ? "☀️ Light" : "🌙 Dark"}
+            </button>
+          </div>
+
+          <h2 className="text-2xl font-extrabold mb-1">Member Login</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+            Enter your credentials to access your role dashboard.
+          </p>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold uppercase mb-1.5 opacity-70">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="manager@vetecura.com"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className={`w-full px-4 py-3 text-sm rounded-xl border outline-none transition-all ${
+                  isDark
+                    ? "bg-slate-950 border-slate-800 focus:border-blue-500 text-white"
+                    : "bg-slate-50 border-slate-300 focus:border-blue-600 text-slate-900"
+                }`}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase mb-1.5 opacity-70">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className={`w-full px-4 py-3 text-sm rounded-xl border outline-none transition-all ${
+                  isDark
+                    ? "bg-slate-950 border-slate-800 focus:border-blue-500 text-white"
+                    : "bg-slate-50 border-slate-300 focus:border-blue-600 text-slate-900"
+                }`}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all mt-2"
+            >
+              Sign In to System
+            </button>
+          </form>
+
+          <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 text-center">
+            <p className="text-xs text-slate-400">
+              Demo Access: Enter any email/password to sign in.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // IF LOGGED IN: SHOW DASHBOARD WITH LOGOUT BUTTON
   return (
     <div
       className={`min-h-screen font-sans antialiased p-6 md:p-10 transition-colors duration-300 ${
@@ -39,7 +145,29 @@ export default function WebAdminDashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {/* Member Profile Badge & Logout */}
+          <div
+            className={`flex items-center gap-3 px-3 py-1.5 rounded-xl border ${
+              isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+            }`}
+          >
+            <div className="text-right hidden sm:block">
+              <p className="text-xs font-bold text-slate-900 dark:text-white leading-none">
+                {userEmail}
+              </p>
+              <p className="text-[10px] text-emerald-500 font-semibold uppercase mt-0.5">
+                Active Member
+              </p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-500/10 rounded-lg border border-red-500/20 transition-all"
+            >
+              Sign Out
+            </button>
+          </div>
+
           {/* Theme Toggle Button */}
           <button
             onClick={() => setThemeMode(isDark ? "light" : "dark")}
@@ -49,7 +177,7 @@ export default function WebAdminDashboard() {
                 : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100 shadow-sm"
             }`}
           >
-            {isDark ? "☀️ Light Mode" : "🌙 Dark Mode"}
+            {isDark ? "☀️ Light" : "🌙 Dark"}
           </button>
 
           {/* Role Selector */}
