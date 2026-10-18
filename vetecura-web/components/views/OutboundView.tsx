@@ -36,17 +36,13 @@ export const OutboundView: React.FC<OutboundViewProps> = ({
   const [searchFilter, setSearchFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const defaultOrders: SalesOrderRow[] = salesOrderList.length > 0 ? salesOrderList : [
-    { id: "1", order_reference: "SO-88412", customer_name: "Apex Veterinary Hospital", expected_count: 50, scanned_count: 0, status: "In Progress", created_at: "2026-08-25, 08:50 AM" },
-    { id: "2", order_reference: "SO-88413", customer_name: "City Pet Clinic", expected_count: 100, scanned_count: 42, status: "In Progress", created_at: "2026-08-25, 09:30 AM" },
-    { id: "3", order_reference: "SO-88414", customer_name: "Rural Agrivet Centre", expected_count: 200, scanned_count: 0, status: "In Progress", created_at: "2026-08-25, 10:00 AM" },
-  ];
+  const defaultOrders: SalesOrderRow[] = salesOrderList;
 
-  const [selectedOrderRef, setSelectedOrderRef] = useState<string>(defaultOrders[0]?.order_reference || "SO-88412");
+  const [selectedOrderRef, setSelectedOrderRef] = useState<string>(salesOrderList[0]?.order_reference || "");
 
-  const selectedSO = defaultOrders.find((s) => s.order_reference === selectedOrderRef) || defaultOrders[0];
+  const selectedSO = salesOrderList.find((s) => s.order_reference === selectedOrderRef) || salesOrderList[0];
 
-  const soOptions = defaultOrders.map((so) => ({
+  const soOptions = salesOrderList.map((so) => ({
     value: so.order_reference,
     label: `${so.order_reference} — ${so.customer_name}`,
     sublabel: `${so.expected_count} Units · Status: ${so.status}`,

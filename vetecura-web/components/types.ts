@@ -153,3 +153,14 @@ export interface DamageWriteoffItem {
   status: "pending" | "approved" | "rejected";
   created_at?: string;
 }
+
+export interface StockLedgerDetailRow {
+  product: string;
+  sku: string;
+  rack: string;
+  batch: string;
+  expiry: string;
+  qty: number;
+  status: string;
+}
+

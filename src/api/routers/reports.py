@@ -10,6 +10,7 @@ from src.db.session import get_db
 from src.api.deps import require_role
 from src.models.user import RoleEnum, User
 from src.models.stock import StockLedger, Batch, ScanEvent
+from src.models.inbound import Rack
 from src.models.product import Product
 from src.models.audit import AuditLog
 from src.models.supplier import Supplier
@@ -128,6 +129,39 @@ async def get_current_stock_report(
         .group_by(Product.name)
     )
     return [{"product_name": r.product_name, "stock_qty": r.stock_qty} for r in res.fetchall()]
+
+@router.get("/stock-ledger-details")
+async def get_stock_ledger_details(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.owner, RoleEnum.warehouse_manager, RoleEnum.warehouse_staff, RoleEnum.purchase_team])),
+):
+    res = await db.execute(
+        select(
+            Product.name.label("product"),
+            Product.sku.label("sku"),
+            Rack.code.label("rack"),
+            Batch.batch_number.label("batch"),
+            Batch.expiry_date.label("expiry"),
+            StockLedger.quantity.label("qty")
+        )
+        .join(Product, StockLedger.product_id == Product.id)
+        .join(Rack, StockLedger.rack_id == Rack.id)
+        .join(Batch, StockLedger.batch_id == Batch.id)
+        .order_by(Product.name.asc(), Batch.expiry_date.asc())
+    )
+    rows = res.fetchall()
+    return [
+        {
+            "product": r.product,
+            "sku": r.sku,
+            "rack": r.rack,
+            "batch": r.batch,
+            "expiry": r.expiry.isoformat() if r.expiry else "N/A",
+            "qty": r.qty,
+            "status": "available" if r.qty > 0 else "out_of_stock"
+        }
+        for r in rows
+    ]
 
 @router.get("/stock-movement")
 async def get_stock_movement_report(

@@ -18,7 +18,7 @@ router = APIRouter()
 # ── Schemas ────────────────────────────────────────────────────────────────
 
 class RackCreate(BaseModel):
-    warehouse_id: UUID
+    warehouse_id: Optional[UUID] = None
     code: str
     capacity_units: Optional[int] = None
 
@@ -120,10 +120,18 @@ async def create_rack(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role([RoleEnum.warehouse_manager, RoleEnum.owner])),
 ):
-    # Verify warehouse exists
-    wh = await db.get(Warehouse, body.warehouse_id)
+    # Verify warehouse exists or fetch default
+    wh = None
+    if body.warehouse_id:
+        wh = await db.get(Warehouse, body.warehouse_id)
     if not wh:
-        raise HTTPException(status_code=404, detail="Warehouse not found")
+        wh_res = await db.execute(select(Warehouse).limit(1))
+        wh = wh_res.scalar_one_or_none()
+
+    if not wh:
+        wh = Warehouse(name="Main Central Warehouse", location="Dock 1")
+        db.add(wh)
+        await db.flush()
 
     # Auto-generate QR label code
     qr_code = f"RACK-{wh.name[:3].upper()}-{body.code}"

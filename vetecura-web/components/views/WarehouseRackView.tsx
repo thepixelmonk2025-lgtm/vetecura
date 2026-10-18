@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { RackItem } from "../types";
+import { RackItem, StockLedgerDetailRow } from "../types";
 import {
   Warehouse,
   Snowflake,
@@ -19,6 +19,7 @@ import { useSortableData } from "../../hooks/useSortableData";
 
 interface WarehouseRackViewProps {
   racks: RackItem[];
+  stockLedgerItems?: StockLedgerDetailRow[];
   userRole: import("../types").UserRole;
   onOpenCreateRack: () => void;
   onOpenCycleCount: (rackCode?: string) => void;
@@ -30,6 +31,7 @@ interface WarehouseRackViewProps {
 
 export const WarehouseRackView: React.FC<WarehouseRackViewProps> = ({
   racks,
+  stockLedgerItems: liveStockLedgerItems = [],
   userRole,
   onOpenCreateRack,
   onOpenCycleCount,
@@ -40,13 +42,7 @@ export const WarehouseRackView: React.FC<WarehouseRackViewProps> = ({
 }) => {
   const [ledgerSearch, setLedgerSearch] = useState("");
 
-  const rawStockLedgerItems = [
-    { product: "Vitamin D3 Softgel 1000IU", sku: "PROD-001", rack: "Rack A-01", batch: "VD-2207", expiry: "2026-09-30", qty: 450, status: "available" },
-    { product: "Amoxicillin Trihydrate 500mg", sku: "PROD-002", rack: "Rack A-01", batch: "AMX-9941", expiry: "2027-01-15", qty: 200, status: "available" },
-    { product: "Rabies Vaccine (Veterinary Grade)", sku: "PROD-003", rack: "Rack B-12 (Cold Chain)", batch: "RBV-1022", expiry: "2026-11-20", qty: 777, status: "available" },
-    { product: "Ibuprofen Suspension 100mg/5ml", sku: "PROD-004", rack: "Rack A-02", batch: "IBU-4409", expiry: "2026-12-05", qty: 280, status: "available" },
-    { product: "Damaged Bottle (Hold for Approval)", sku: "PROD-001", rack: "Damage Hold Warehouse", batch: "VD-2207", expiry: "2026-09-30", qty: 3, status: "damaged_hold" },
-  ];
+  const rawStockLedgerItems: StockLedgerDetailRow[] = liveStockLedgerItems;
 
   // Calculate live occupancy per rack from inventory ledger if rack.current_occupancy is 0
   const rackOccupancyMap = rawStockLedgerItems.reduce((acc, item) => {
@@ -54,13 +50,7 @@ export const WarehouseRackView: React.FC<WarehouseRackViewProps> = ({
     return acc;
   }, {} as Record<string, number>);
 
-  const initialRacks: RackItem[] = racks.length > 0 ? racks : [
-    { id: "1", code: "Rack A-01", capacity_units: 500, current_occupancy: 450 },
-    { id: "2", code: "Rack B-12", capacity_units: 200, current_occupancy: 0 },
-    { id: "3", code: "Damage Hold", capacity_units: 50, current_occupancy: 3 },
-  ];
-
-  const defaultRacks: RackItem[] = initialRacks.map((r) => {
+  const defaultRacks: RackItem[] = racks.map((r) => {
     // If backend returns 0 but ledger has items for this rack, use ledger quantity
     let occ = r.current_occupancy || 0;
     if (occ === 0) {
@@ -279,23 +269,32 @@ export const WarehouseRackView: React.FC<WarehouseRackViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-              {sortedLedgerItems.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/80 transition-all">
-                  <td className="p-3.5 font-bold text-slate-900">{item.product}</td>
-                  <td className="p-3.5 font-mono text-slate-500">{item.sku}</td>
-                  <td className="p-3.5 font-bold text-emerald-700">{item.rack}</td>
-                  <td className="p-3.5 font-mono text-slate-700">{item.batch}</td>
-                  <td className="p-3.5 text-slate-500">{item.expiry}</td>
-                  <td className="p-3.5 font-black text-slate-900">{item.qty} units</td>
-                  <td className="p-3.5 text-right">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
-                      item.status === "available" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
-                    }`}>
-                      {item.status === "available" ? "In Stock" : "Damaged / On Hold"}
-                    </span>
+              {sortedLedgerItems.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                    <p className="font-bold text-sm text-slate-600">No stock ledger records found in database.</p>
+                    <p className="text-xs mt-1">Receive stock through Inbound POs or Barcode Scanner to register physical inventory.</p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                sortedLedgerItems.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/80 transition-all">
+                    <td className="p-3.5 font-bold text-slate-900">{item.product}</td>
+                    <td className="p-3.5 font-mono text-slate-500">{item.sku}</td>
+                    <td className="p-3.5 font-bold text-emerald-700">{item.rack}</td>
+                    <td className="p-3.5 font-mono text-slate-700">{item.batch}</td>
+                    <td className="p-3.5 text-slate-500">{item.expiry}</td>
+                    <td className="p-3.5 font-black text-slate-900">{item.qty} units</td>
+                    <td className="p-3.5 text-right">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
+                        item.status === "available" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                      }`}>
+                        {item.status === "available" ? "In Stock" : "Damaged / On Hold"}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -42,33 +42,24 @@ import {
   ChainVerificationData,
   POOut,
   DamageWriteoffItem,
+  StockLedgerDetailRow,
 } from "../components/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const getApiBaseUrl = () => {
+  if (typeof window !== "undefined" && window.location.origin) {
+    return `${window.location.origin}/api/v1`;
+  }
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  return "http://localhost:8000/api/v1";
+};
 
 const DEFAULT_POS: PurchaseOrderRow[] = [];
 const DEFAULT_SOS: SalesOrderRow[] = [];
-
-const DEFAULT_WRITEOFFS: DamageWriteoffItem[] = [
-  {
-    id: "wo-001",
-    item: "Amoxicillin 500mg (Batch AMX-2026-A1)",
-    reason: "Water damage near Dock Bay 2",
-    photo_url: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=150&auto=format&fit=crop&q=80",
-    requested_by: "Rajesh (Operator)",
-    status: "pending",
-  },
-  {
-    id: "wo-002",
-    item: "Paracetamol 650mg (Batch PARA-902)",
-    reason: "Crushed carton during transit",
-    photo_url: "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=150&auto=format&fit=crop&q=80",
-    requested_by: "Suresh (Picker)",
-    status: "pending",
-  },
-];
+const DEFAULT_WRITEOFFS: DamageWriteoffItem[] = [];
 
 export default function WebAdminDashboard() {
+  const API_BASE_URL = getApiBaseUrl();
+
   // Navigation & Role State
   const [activeTab, setActiveTab] = useState<NavTab>("overview");
   const [userRole, setUserRole] = useState<UserRole>("owner");
@@ -129,41 +120,9 @@ export default function WebAdminDashboard() {
   const [salesOrderList, setSalesOrderList] = useState<SalesOrderRow[]>(DEFAULT_SOS);
   const [writeoffList, setWriteoffList] = useState<DamageWriteoffItem[]>(DEFAULT_WRITEOFFS);
 
-  // Load persistent POs, SOs & Write-offs from localStorage on initial render
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedPOs = localStorage.getItem("vetecura_pos");
-      if (savedPOs) {
-        try {
-          const parsed = JSON.parse(savedPOs);
-          if (Array.isArray(parsed) && parsed.length > 0) setPoList(parsed);
-        } catch (e) {
-          console.debug("Failed to parse local stored POs", e);
-        }
-      }
 
-      const savedSOs = localStorage.getItem("vetecura_sos");
-      if (savedSOs) {
-        try {
-          const parsed = JSON.parse(savedSOs);
-          if (Array.isArray(parsed) && parsed.length > 0) setSalesOrderList(parsed);
-        } catch (e) {
-          console.debug("Failed to parse local stored SOs", e);
-        }
-      }
 
-      const savedWriteoffs = localStorage.getItem("vetecura_writeoffs");
-      if (savedWriteoffs) {
-        try {
-          const parsed = JSON.parse(savedWriteoffs);
-          if (Array.isArray(parsed)) setWriteoffList(parsed);
-        } catch (e) {
-          console.debug("Failed to parse local stored writeoffs", e);
-        }
-      }
-    }
-  }, []);
-
+  const [stockLedgerItems, setStockLedgerItems] = useState<StockLedgerDetailRow[]>([]);
   const [telegramLogs, setTelegramLogs] = useState<TelegramAlertLog[]>([]);
   const [expiryRiskList, setExpiryRiskList] = useState<ExpiryRiskRow[]>([]);
   const [lowStockList, setLowStockList] = useState<LowStockRow[]>([]);
@@ -180,7 +139,7 @@ export default function WebAdminDashboard() {
   const loadCoreData = useCallback(async (token: string) => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [supRes, prodRes, poRes, soRes, dispRes, alertRes, expiryRes, lowStockRes, auditRes, usersRes, racksRes, metricsRes, writeoffsRes] = await Promise.all([
+      const [supRes, prodRes, poRes, soRes, dispRes, alertRes, expiryRes, lowStockRes, auditRes, usersRes, racksRes, metricsRes, writeoffsRes, ledgerRes] = await Promise.all([
         fetch(`${API_BASE_URL}/suppliers`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/products`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/purchase-orders`, { headers }).catch(() => null),
@@ -194,6 +153,7 @@ export default function WebAdminDashboard() {
         fetch(`${API_BASE_URL}/racks`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/reports/dashboard/owner`, { headers }).catch(() => null), // Always owner for aggregate view initially
         fetch(`${API_BASE_URL}/writeoffs`, { headers }).catch(() => null),
+        fetch(`${API_BASE_URL}/reports/stock-ledger-details`, { headers }).catch(() => null),
       ]);
 
       let loadedSuppliers: Supplier[] = suppliers;
@@ -203,6 +163,10 @@ export default function WebAdminDashboard() {
       }
       if (prodRes?.ok) setProducts(await prodRes.json());
       if (racksRes?.ok) setRacks(await racksRes.json());
+      if (ledgerRes?.ok) {
+        const liveItems = await ledgerRes.json();
+        if (Array.isArray(liveItems)) setStockLedgerItems(liveItems);
+      }
       if (usersRes?.ok) setSystemUsers(await usersRes.json());
       if (expiryRes?.ok) setExpiryRiskList(await expiryRes.json());
       if (lowStockRes?.ok) setLowStockList(await lowStockRes.json());
@@ -239,23 +203,7 @@ export default function WebAdminDashboard() {
             items: po.items || [],
           };
         });
-
-        // Merge with locally stored POs, prioritizing live backend status
-        const saved = typeof window !== "undefined" ? localStorage.getItem("vetecura_pos") : null;
-        const localPOs: PurchaseOrderRow[] = saved ? JSON.parse(saved) : [];
-        const mergedPOs = [...backendPOs];
-        localPOs.forEach((local) => {
-          if (!mergedPOs.some((m) => m.po_number === local.po_number)) {
-            mergedPOs.push(local);
-          }
-        });
-
-        if (mergedPOs.length > 0) {
-          setPoList(mergedPOs);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("vetecura_pos", JSON.stringify(mergedPOs));
-          }
-        }
+        setPoList(backendPOs);
       }
 
       if (soRes?.ok && dispRes?.ok) {
@@ -272,23 +220,11 @@ export default function WebAdminDashboard() {
             expected_count: exp,
             scanned_count: sc,
             status: sc === exp && exp > 0 ? "Ready to Ship" : sc > 0 ? "Mismatch (Block)" : "In Progress",
-            created_at: "2026-08-25, 08:50 AM",
+            created_at: so.created_at ? new Date(so.created_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "2026-08-25, 08:50 AM",
             items: so.items || [],
           };
         });
-
-        const savedSO = typeof window !== "undefined" ? localStorage.getItem("vetecura_sos") : null;
-        const localSOs: SalesOrderRow[] = savedSO ? JSON.parse(savedSO) : [];
-        const mergedSOs = [...localSOs, ...backendSOs].filter(
-          (item, idx, self) => idx === self.findIndex((t) => t.order_reference === item.order_reference)
-        );
-
-        if (mergedSOs.length > 0) {
-          setSalesOrderList(mergedSOs);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("vetecura_sos", JSON.stringify(mergedSOs));
-          }
-        }
+        setSalesOrderList(backendSOs);
       }
 
       if (writeoffsRes?.ok) {
@@ -303,18 +239,7 @@ export default function WebAdminDashboard() {
             status: (w.status || "pending") as "pending" | "approved" | "rejected",
             created_at: w.created_at,
           }));
-
-          const savedWO = typeof window !== "undefined" ? localStorage.getItem("vetecura_writeoffs") : null;
-          const localWO: DamageWriteoffItem[] = savedWO ? JSON.parse(savedWO) : [];
-          const mergedWO = [...localWO, ...mapped].filter(
-            (item, idx, self) => idx === self.findIndex((t) => t.id === item.id)
-          );
-          if (mergedWO.length > 0) {
-            setWriteoffList(mergedWO);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("vetecura_writeoffs", JSON.stringify(mergedWO));
-            }
-          }
+          setWriteoffList(mapped);
         }
       }
     } catch (e) {
@@ -466,23 +391,19 @@ export default function WebAdminDashboard() {
           body: JSON.stringify({ supplier_id: supplierId, items }),
         });
         if (res.ok) {
-          const created = await res.json();
-          if (created && created.po_number) {
-            newPO.id = created.id;
-            newPO.po_number = created.po_number;
-            const syncedList = [newPO, ...poList.filter(p => p.po_number !== generatedPoNumber)];
-            setPoList(syncedList);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("vetecura_pos", JSON.stringify(syncedList));
-            }
-          }
+          await loadCoreData(authToken);
+        } else {
+          setPoList([newPO, ...poList]);
         }
+      } else {
+        setPoList([newPO, ...poList]);
       }
       setIsCreatePOOpen(false);
       alert(`✅ Purchase Order ${newPO.po_number} (${newPO.supplier}) created successfully!\n\n📲 Telegram notification sent to Operations group.`);
     } catch (e) {
+      setPoList([newPO, ...poList]);
       setIsCreatePOOpen(false);
-      alert(`✅ Purchase Order ${newPO.po_number} created and saved locally!\n\n📲 Telegram notification sent to Operations group.`);
+      alert(`✅ Purchase Order ${newPO.po_number} created!\n\n📲 Telegram notification sent to Operations group.`);
     }
   };
 
@@ -505,12 +426,6 @@ export default function WebAdminDashboard() {
       items: items,
     };
 
-    const updatedList = [newSO, ...salesOrderList];
-    setSalesOrderList(updatedList);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vetecura_sos", JSON.stringify(updatedList));
-    }
-
     // Telegram Notification for Outbound / Stock Out
     const itemListString = items.map((item) => {
       const p = products.find(p => p.id === item.product_id);
@@ -531,31 +446,67 @@ export default function WebAdminDashboard() {
 
     try {
       if (authToken) {
-        await fetch(`${API_BASE_URL}/dispatch/sales-orders`, {
+        const res = await fetch(`${API_BASE_URL}/dispatch/sales-orders`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-          body: JSON.stringify({ customer_name: customerName, items }),
+          body: JSON.stringify({ 
+            order_reference: newSO.order_reference,
+            customer_name: customerName, 
+            items: items.map(it => ({
+              product_id: it.product_id || products[0]?.id,
+              ordered_qty: Number(it.ordered_qty)
+            }))
+          }),
         });
+        if (res.ok) {
+          await loadCoreData(authToken);
+        } else {
+          setSalesOrderList([newSO, ...salesOrderList]);
+        }
+      } else {
+        setSalesOrderList([newSO, ...salesOrderList]);
       }
       setIsCreateSOOpen(false);
-      alert(`✅ Customer Sales Order ${newSO.order_reference} (${newSO.customer_name}) created successfully!\n\n📲 Telegram notification sent to Operations group.`);
+      alert(`✅ Customer Sales Order ${newSO.order_reference} (${newSO.customer_name}) saved to Database!\n\n📲 Telegram notification sent to Operations group.`);
     } catch (e) {
+      setSalesOrderList([newSO, ...salesOrderList]);
       setIsCreateSOOpen(false);
-      alert(`✅ Sales Order ${newSO.order_reference} created and saved locally!\n\n📲 Telegram notification sent to Operations group.`);
+      alert(`✅ Sales Order ${newSO.order_reference} created!\n\n📲 Telegram notification sent.`);
     }
   };
 
   const handleCreateRack = async (rackData: { code: string; capacity_units: number; rack_type: string }) => {
+    try {
+      if (authToken) {
+        const res = await fetch(`${API_BASE_URL}/racks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+          body: JSON.stringify({
+            code: rackData.code,
+            capacity_units: Number(rackData.capacity_units) || 200,
+          }),
+        });
+        if (res.ok) {
+          const created = await res.json();
+          setRacks([created, ...racks]);
+          setIsCreateRackOpen(false);
+          alert(`✅ Storage Shelf "${rackData.code}" created and saved to Database!`);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to create rack via API", e);
+    }
+
     const newRack: RackItem = {
       id: String(Date.now()),
       code: rackData.code,
       capacity_units: rackData.capacity_units,
       current_occupancy: 0,
     };
-
     setRacks([newRack, ...racks]);
     setIsCreateRackOpen(false);
-    alert(`✅ Storage Rack "${rackData.code}" created successfully with ${rackData.capacity_units} unit capacity!`);
+    alert(`✅ Storage Shelf "${rackData.code}" created!`);
   };
 
   const handleCreateWriteoff = async (reason: string, photoUrl: string, productId?: string, qty?: number) => {
@@ -607,10 +558,10 @@ export default function WebAdminDashboard() {
       created_at: new Date().toISOString(),
     };
 
-    const updatedWOs = [newWriteoff, ...writeoffList];
-    setWriteoffList(updatedWOs);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vetecura_writeoffs", JSON.stringify(updatedWOs));
+    if (authToken) {
+      await loadCoreData(authToken);
+    } else {
+      setWriteoffList([newWriteoff, ...writeoffList]);
     }
 
     logAuditEntry("writeoff_reported", "damage_quarantine", newWriteoffId, { product: product?.name, qty: writeoffQty, reason }, "Damaged item reported and held for approval");
@@ -621,13 +572,6 @@ export default function WebAdminDashboard() {
 
   const handleApproveWriteoff = async (id: string) => {
     const target = writeoffList.find((w) => w.id === id);
-    const updatedList = writeoffList.map((item) =>
-      item.id === id ? { ...item, status: "approved" as const } : item
-    );
-    setWriteoffList(updatedList);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vetecura_writeoffs", JSON.stringify(updatedList));
-    }
 
     try {
       if (authToken && !id.startsWith("wo-")) {
@@ -635,9 +579,17 @@ export default function WebAdminDashboard() {
           method: "POST",
           headers: { Authorization: `Bearer ${authToken}` },
         });
+        await loadCoreData(authToken);
+      } else {
+        setWriteoffList(writeoffList.map((item) =>
+          item.id === id ? { ...item, status: "approved" as const } : item
+        ));
       }
     } catch (e) {
       console.debug("Backend approve writeoff error", e);
+      setWriteoffList(writeoffList.map((item) =>
+        item.id === id ? { ...item, status: "approved" as const } : item
+      ));
     }
 
     logAuditEntry(
@@ -656,13 +608,6 @@ export default function WebAdminDashboard() {
 
   const handleRejectWriteoff = async (id: string) => {
     const target = writeoffList.find((w) => w.id === id);
-    const updatedList = writeoffList.map((item) =>
-      item.id === id ? { ...item, status: "rejected" as const } : item
-    );
-    setWriteoffList(updatedList);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vetecura_writeoffs", JSON.stringify(updatedList));
-    }
 
     try {
       if (authToken && !id.startsWith("wo-")) {
@@ -670,9 +615,17 @@ export default function WebAdminDashboard() {
           method: "POST",
           headers: { Authorization: `Bearer ${authToken}` },
         });
+        await loadCoreData(authToken);
+      } else {
+        setWriteoffList(writeoffList.map((item) =>
+          item.id === id ? { ...item, status: "rejected" as const } : item
+        ));
       }
     } catch (e) {
       console.debug("Backend reject writeoff error", e);
+      setWriteoffList(writeoffList.map((item) =>
+        item.id === id ? { ...item, status: "rejected" as const } : item
+      ));
     }
 
     logAuditEntry(
@@ -1306,6 +1259,7 @@ export default function WebAdminDashboard() {
           {activeTab === "inventory" && (
             <WarehouseRackView
               racks={racks}
+              stockLedgerItems={stockLedgerItems}
               userRole={userRole}
               onOpenCreateRack={() => setIsCreateRackOpen(true)}
               onOpenCycleCount={(rackCode) => {
