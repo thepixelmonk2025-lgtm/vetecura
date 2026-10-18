@@ -21,21 +21,29 @@ A barcode-first Inventory Management System (IMS) where every physical unit is s
 
 ## Technology Stack
 
-Technology stack not yet documented. Will populate after codebase mapping or first phase.
+- **Backend**: FastAPI (Python 3.11), SQLAlchemy 2.0 ORM, PostgreSQL 15 (AsyncPG), Redis 7
+- **Frontend**: Next.js 16.2 (Turbopack, TypeScript), Vanilla TailwindCSS, PWA Scanner
+- **Gateway & Deploy**: Nginx Reverse Proxy (Port 80), Docker Compose (7 container microservices)
+
 <!-- GSD:stack-end -->
 
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
 
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+- **Audit Trail**: Every stock change writes a synchronous SHA-256 hash-chained `AuditLog` entry inside the database transaction.
+- **Async Queueing**: Telegram alerts and heavy report exports run asynchronously via background workers (`telegram_worker.py`).
+- **REST Endpoints**: FastAPI endpoints use Pydantic models for validation and require role-based access (`RoleEnum`).
+
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
 
 ## Architecture
 
-Architecture not yet mapped. Follow existing patterns found in the codebase.
+- **Reverse Proxy**: Nginx routes `/api/` to `backend:8000`, `/` to `web_admin:3000`, and `/pwa/` to `pwa_scanner:80`.
+- **Database Model**: PostgreSQL tables for Users, Suppliers, Products, Racks, Purchase Orders, Goods Receipts, Sales Orders, Dispatches, Write-offs, Returns, Cycle Counts, and Audit Logs.
+
 <!-- GSD:architecture-end -->
 
 <!-- GSD:skills-start source:skills/ -->

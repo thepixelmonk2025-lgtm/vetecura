@@ -27,14 +27,17 @@ class ReturnInspect(BaseModel):
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 async def _write_audit(db, user_id, action, entity_id, payload):
-    last = await db.execute(select(AuditLog).order_by(AuditLog.id.desc()).limit(1))
+    last = await db.execute(
+        select(AuditLog).order_by(AuditLog.id.desc()).limit(1).with_for_update()
+    )
     last_log = last.scalar_one_or_none()
     prev_hash = last_log.current_hash if last_log else "0" * 64
+    uid = user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(str(user_id))
     log = AuditLog(
-        user_id=user_id,
+        user_id=uid,
         action=action,
         entity_type="returns",
-        entity_id=entity_id,
+        entity_id=str(entity_id),
         changes=payload,
         previous_hash=prev_hash,
     )
@@ -49,6 +52,13 @@ async def log_return(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role([RoleEnum.warehouse_staff, RoleEnum.warehouse_manager, RoleEnum.owner])),
 ):
+    bc = await db.get(ItemBarcode, body.item_barcode_id)
+    if not bc:
+        raise HTTPException(status_code=404, detail="Item barcode not found")
+
+    bc.status = "returned_hold"
+    bc.last_scanned_at = datetime.now(timezone.utc)
+
     ret = Return(
         return_type=body.return_type,
         reference_order_id=body.reference_order_id,
@@ -71,6 +81,10 @@ async def inspect_return(
     if not ret:
         raise HTTPException(status_code=404, detail="Return not found")
 
+    rack = await db.get(Rack, body.routed_to_rack_id)
+    if not rack:
+        raise HTTPException(status_code=422, detail="Destination rack not found")
+
     ret.condition = body.condition
     ret.routed_to_rack_id = body.routed_to_rack_id
     ret.inspected_by = current_user.id
@@ -85,11 +99,12 @@ async def inspect_return(
             StockLedger.product_id == bc.product_id,
             StockLedger.batch_id == bc.batch_id,
             StockLedger.rack_id == body.routed_to_rack_id
-        )
+        ).with_for_update()
     )
     sl = sl_res.scalar_one_or_none()
     if sl:
         sl.quantity += 1
+        sl.updated_at = datetime.now(timezone.utc)
     else:
         sl = StockLedger(
             product_id=bc.product_id,
@@ -98,6 +113,15 @@ async def inspect_return(
             quantity=1
         )
         db.add(sl)
+
+    # Update item barcode state
+    if body.condition == "good":
+        bc.status = "available"
+    else:
+        bc.status = "damaged_hold"
+    
+    bc.current_rack_id = body.routed_to_rack_id
+    bc.last_scanned_at = datetime.now(timezone.utc)
 
     # Log scan_event return_in
     scan = ScanEvent(
@@ -109,17 +133,6 @@ async def inspect_return(
         scanned_by=current_user.id
     )
     db.add(scan)
-
-    if body.condition in ["damaged", "expired"]:
-        # Auto-create linked DamageWriteoff
-        wo = DamageWriteoff(
-            item_barcode_id=ret.item_barcode_id,
-            reason=body.condition,
-            photo_proof_url="http://placeholder/return-photo.jpg",  # Placeholder URL for returns auto-creation
-            requested_by=current_user.id,
-            status=WriteoffStatusEnum.pending
-        )
-        db.add(wo)
 
     await _write_audit(db, current_user.id, "return_inspected", ret.id, {
         "condition": body.condition,

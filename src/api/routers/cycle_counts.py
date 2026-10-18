@@ -31,14 +31,17 @@ class VarianceOut(BaseModel):
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 async def _write_audit(db, user_id, action, entity_id, payload):
-    last = await db.execute(select(AuditLog).order_by(AuditLog.id.desc()).limit(1))
+    last = await db.execute(
+        select(AuditLog).order_by(AuditLog.id.desc()).limit(1).with_for_update()
+    )
     last_log = last.scalar_one_or_none()
     prev_hash = last_log.current_hash if last_log else "0" * 64
+    uid = user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(str(user_id))
     log = AuditLog(
-        user_id=user_id,
+        user_id=uid,
         action=action,
         entity_type="cycle_counts",
-        entity_id=entity_id,
+        entity_id=str(entity_id),
         changes=payload,
         previous_hash=prev_hash,
     )
@@ -75,14 +78,40 @@ async def cycle_count_scan(
     if not cc:
         raise HTTPException(status_code=404, detail="Cycle Count not found")
 
+    if cc.status == CycleCountStatusEnum.completed:
+        raise HTTPException(status_code=409, detail="Cycle count is already completed.")
+
     if cc.status == CycleCountStatusEnum.scheduled:
         cc.status = CycleCountStatusEnum.in_progress
         cc.performed_by = current_user.id
 
+    # 1. Duplicate scan check within this cycle count session
+    dup_result = await db.execute(
+        select(ScanEvent).where(
+            ScanEvent.barcode_value == body.barcode_value,
+            ScanEvent.reference_id == cc_id,
+            ScanEvent.event_type == "cycle_count"
+        )
+    )
+    if dup_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "duplicate_scan", "message": "This barcode was already scanned in this cycle count session."}
+        )
+
+    # 2. Barcode recognition and rack validation
     bc_res = await db.execute(select(ItemBarcode).where(ItemBarcode.barcode_value == body.barcode_value))
     bc = bc_res.scalar_one_or_none()
     if not bc:
-        raise HTTPException(status_code=422, detail="Barcode not recognized")
+        raise HTTPException(status_code=422, detail={"error": "barcode_not_found", "message": "Barcode not recognized."})
+
+    if bc.current_rack_id and bc.current_rack_id != cc.rack_id:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "rack_mismatch", "message": f"Barcode location mismatch: item belongs to rack {bc.current_rack_id}, but counted on rack {cc.rack_id}."}
+        )
+
+    bc.last_scanned_at = datetime.now(timezone.utc)
 
     scan = ScanEvent(
         event_type="cycle_count",

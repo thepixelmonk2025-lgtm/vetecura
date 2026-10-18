@@ -36,6 +36,8 @@ services:
       dockerfile: Dockerfile
     container_name: vetecura_backend
     restart: always
+    ports:
+      - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://vetecura_app:${DB_PASSWORD:-vetecura_secure_pass_2026}@postgres:5432/vetecura
       - REDIS_URL=redis://redis:6379/0

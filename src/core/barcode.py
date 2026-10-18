@@ -48,12 +48,13 @@ async def generate_system_barcode(product_sku: str, db: AsyncSession) -> str:
 
     new_barcode = f"{prefix}{next_seq:06d}"
 
-    # Double-check uniqueness (failsafe)
-    existing = await db.execute(
-        select(ItemBarcode).where(ItemBarcode.barcode_value == new_barcode)
-    )
-    if existing.scalar_one_or_none():
-        # Collision — increment until unique
+    # Double-check uniqueness loop (failsafe)
+    while True:
+        existing = await db.execute(
+            select(ItemBarcode.id).where(ItemBarcode.barcode_value == new_barcode)
+        )
+        if not existing.scalar_one_or_none():
+            break
         next_seq += 1
         new_barcode = f"{prefix}{next_seq:06d}"
 

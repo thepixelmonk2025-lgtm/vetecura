@@ -18,7 +18,20 @@ if config.config_file_name is not None:
 
 from src.core.config import settings
 from src.db.session import Base
-from src.models import user, audit  # load models
+from src.models import (
+    user,
+    supplier,
+    product,
+    inbound,
+    dispatch,
+    stock,
+    audit,
+    antitheft,
+    label,
+    notification,
+    preferences,
+    config as config_model,
+)
 
 config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URI)
 

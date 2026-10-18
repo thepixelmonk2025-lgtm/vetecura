@@ -4,6 +4,7 @@ import enum
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from src.db.session import Base
 
 
@@ -36,6 +37,8 @@ class SalesOrder(Base):
     status = Column(String(20), default=SalesOrderStatusEnum.pending, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    items = relationship("SalesOrderItem", back_populates="sales_order", lazy="noload")
+
 
 class SalesOrderItem(Base):
     __tablename__ = "sales_order_items"
@@ -44,6 +47,8 @@ class SalesOrderItem(Base):
     sales_order_id = Column(UUID(as_uuid=True), ForeignKey("sales_orders.id", ondelete="CASCADE"), nullable=False)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     ordered_qty = Column(Integer, nullable=False)
+
+    sales_order = relationship("SalesOrder", back_populates="items")
 
 
 class PickList(Base):

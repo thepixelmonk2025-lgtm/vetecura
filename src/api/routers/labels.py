@@ -78,14 +78,17 @@ class PrintJobOut(BaseModel):
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 async def _write_audit(db, user_id, action, entity_id, payload):
-    last = await db.execute(select(AuditLog).order_by(AuditLog.id.desc()).limit(1))
+    last = await db.execute(
+        select(AuditLog).order_by(AuditLog.id.desc()).limit(1).with_for_update()
+    )
     last_log = last.scalar_one_or_none()
     prev_hash = last_log.current_hash if last_log else "0" * 64
+    uid = user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(str(user_id))
     log = AuditLog(
-        user_id=user_id,
+        user_id=uid,
         action=action,
         entity_type="print_jobs",
-        entity_id=entity_id,
+        entity_id=str(entity_id),
         changes=payload,
         previous_hash=prev_hash,
     )
@@ -219,7 +222,7 @@ async def reprint_label(
     job = PrintJob(
         label_type=tmpl.label_type,
         entity_type=entity_type,
-        entity_id=entity_id,
+        entity_id=str(entity_id),
         template_id=tmpl.id,
         printer_id=printer_id,
         status=PrintJobStatusEnum.queued

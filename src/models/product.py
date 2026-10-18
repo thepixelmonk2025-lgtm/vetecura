@@ -1,6 +1,6 @@
 import uuid
 import enum
-from sqlalchemy import Column, String, Boolean, Integer, DateTime
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from src.db.session import Base
@@ -17,4 +17,5 @@ class Product(Base):
     reorder_level = Column(Integer, default=0)
     manufacturer_barcode = Column(String(100), index=True)
     is_batch_tracked = Column(Boolean, default=True)
+    unit_price = Column(Float, default=0.0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

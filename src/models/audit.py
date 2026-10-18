@@ -29,5 +29,5 @@ class AuditLog(Base):
         # Ensure timestamp is formatted consistently
         ts_str = self.timestamp.isoformat() if isinstance(self.timestamp, datetime) else str(self.timestamp)
         
-        data_string = f"{self.id}{ts_str}{self.user_id}{self.action}{self.entity_type}{self.entity_id}{changes_str}{self.previous_hash}"
+        data_string = f"{ts_str}{self.user_id}{self.action}{self.entity_type}{self.entity_id}{changes_str}{self.previous_hash}"
         return hashlib.sha256(data_string.encode('utf-8')).hexdigest()

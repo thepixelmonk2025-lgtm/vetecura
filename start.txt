@@ -1,0 +1,41 @@
+Here is how to start the Vetecura IMS system:
+
+🚀 Method 1: Docker Containerized Mode (Recommended & Fastest)
+Running with Docker starts all 7 microservices (Postgres, Redis, FastAPI Backend, Telegram Worker, Web Admin, PWA Scanner, and Nginx Gateway) together automatically.
+
+Step 1: Start Docker Containers
+Open PowerShell in C:\vetecura and run:
+
+powershell
+docker-compose up -d
+Step 2: Seed Initial Master Data (First time setup)
+powershell
+docker cp src/db/seed.py vetecura_backend:/app/src/db/seed.py
+docker exec -it vetecura_backend python -m src.db.seed
+Step 3: Access Applications in Browser
+🌐 Web Admin Executive Dashboard: 👉 http://localhost
+📱 Warehouse Mobile PWA Scanner: 👉 http://localhost/pwa/
+⚡ FastAPI Interactive Swagger Docs: 👉 http://localhost/docs
+💻 Method 2: Local Development Mode (Without Docker)
+If you prefer running individual dev servers directly:
+
+1️⃣ Terminal 1 — Start FastAPI Backend:
+powershell
+uvicorn src.main:app --reload --port 8000
+2️⃣ Terminal 2 — Start Web Admin Dashboard:
+powershell
+cd vetecura-web
+npm run dev
+(Runs at http://localhost:3000)
+
+3️⃣ Terminal 3 — Start Warehouse PWA Scanner:
+powershell
+cd vetecura-pwa
+npm run dev
+(Runs at http://localhost:5173)
+
+🔑 Default Login Credentials:
+👑 Owner Account: owner@vetecura.com
+🏢 Manager Account: manager@vetecura.com
+📦 Staff Account: staff@vetecura.com
+🔒 Password: password123

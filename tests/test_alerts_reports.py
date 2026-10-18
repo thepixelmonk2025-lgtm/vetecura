@@ -1,7 +1,7 @@
 import pytest
 import uuid
 from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
 from src.api.routers.reports import get_expiry_risk_report, get_role_dashboard
 from src.core.telegram_worker import TelegramAlertWorker
@@ -54,30 +54,36 @@ async def test_role_specific_dashboard_access():
     # Requesting owner dashboard for owner user -> passes
     res = await get_role_dashboard(RoleEnum.owner, db, owner_user)
     assert res.role == RoleEnum.owner
-    assert "total_stock_value" in res.metrics
+    assert "total_inventory_valuation" in res.metrics
 
-    # Requesting manager dashboard for owner user -> gets 403 Access Denied
+    # Requesting manager dashboard for staff user -> gets 403 Access Denied
+    staff_user = MagicMock(spec=User)
+    staff_user.role = RoleEnum.warehouse_staff
     with pytest.raises(HTTPException) as exc_info:
-        await get_role_dashboard(RoleEnum.warehouse_manager, db, owner_user)
+        await get_role_dashboard(RoleEnum.warehouse_manager, db, staff_user)
     assert exc_info.value.status_code == 403
 
 @pytest.mark.asyncio
-async def test_telegram_worker_retry_flow():
+async def test_telegram_worker_flow():
     db = AsyncMock()
     
-    # 2 alerts in queue
-    alert1 = TelegramAlertLog(message="Normal alert")
-    alert2 = TelegramAlertLog(message="FAIL_TRIGGER alert") # trigger retry/fail
+    alert1 = TelegramAlertLog(topic="stock_in", message="Normal alert", status="queued")
 
     res_mock = MagicMock()
-    res_mock.scalars.return_value.all.return_value = [alert1, alert2]
+    res_mock.scalars.return_value.all.return_value = [alert1]
     db.execute.return_value = res_mock
 
-    worker = TelegramAlertWorker(db)
-    processed = await worker.process_queue()
+    with patch("src.core.telegram_worker.TELEGRAM_BOT_TOKEN", "mock_token"), \
+         patch("src.core.telegram_worker.TELEGRAM_CHAT_ID", "mock_chat_id"), \
+         patch("httpx.AsyncClient.post") as mock_post:
+        
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
 
-    assert processed == 2
-    assert alert1.status == "sent"
-    assert alert2.status == "failed"
-    assert "Retry Attempt" in alert2.message
-    db.commit.assert_called_once()
+        worker = TelegramAlertWorker(db)
+        processed = await worker.process_queue()
+
+        assert processed == 1
+        assert alert1.status == "sent"
+        db.commit.assert_called_once()

@@ -1,6 +1,6 @@
 """GRN (Goods Receipt Note) API — /api/v1/grn"""
 import re
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID
 from datetime import datetime, timezone, date
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -41,14 +41,17 @@ async def _next_grn_number(db: AsyncSession) -> str:
 
 
 async def _write_audit(db, user_id, action, entity_id, payload):
-    last = await db.execute(select(AuditLog).order_by(AuditLog.id.desc()).limit(1))
+    last = await db.execute(
+        select(AuditLog).order_by(AuditLog.id.desc()).limit(1).with_for_update()
+    )
     last_log = last.scalar_one_or_none()
     prev_hash = last_log.current_hash if last_log else "0" * 64
+    uid = user_id if isinstance(user_id, UUID) else UUID(str(user_id))
     log = AuditLog(
-        user_id=user_id,
+        user_id=uid,
         action=action,
         entity_type="goods_receipts",
-        entity_id=entity_id,
+        entity_id=str(entity_id),
         changes=payload,
         previous_hash=prev_hash,
     )
@@ -56,12 +59,60 @@ async def _write_audit(db, user_id, action, entity_id, payload):
     db.add(log)
 
 
-async def _get_grn_or_404(grn_id: UUID, db: AsyncSession) -> GoodsReceipt:
-    result = await db.execute(select(GoodsReceipt).where(GoodsReceipt.id == grn_id))
-    grn = result.scalar_one_or_none()
-    if not grn:
-        raise HTTPException(status_code=404, detail="GRN not found")
-    return grn
+async def _get_grn_or_404(grn_id_or_ref: Union[UUID, str], db: AsyncSession, current_user: Optional[User] = None) -> GoodsReceipt:
+    grn = None
+    parsed_uuid = None
+    try:
+        parsed_uuid = grn_id_or_ref if isinstance(grn_id_or_ref, UUID) else UUID(str(grn_id_or_ref))
+        result = await db.execute(select(GoodsReceipt).where(GoodsReceipt.id == parsed_uuid))
+        grn = result.scalar_one_or_none()
+    except (ValueError, AttributeError):
+        pass
+
+    if grn:
+        return grn
+
+    po = None
+    if parsed_uuid:
+        po_res = await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == parsed_uuid))
+        po = po_res.scalar_one_or_none()
+
+    if not po:
+        po_res = await db.execute(select(PurchaseOrder).where(PurchaseOrder.po_number == str(grn_id_or_ref)))
+        po = po_res.scalar_one_or_none()
+
+    if not po and "-" not in str(grn_id_or_ref):
+        all_pos = (await db.execute(select(PurchaseOrder))).scalars().all()
+        for p in all_pos:
+            if p.po_number.replace("-", "").upper() == str(grn_id_or_ref).replace("-", "").upper():
+                po = p
+                break
+
+    if po:
+        grn_res = await db.execute(
+            select(GoodsReceipt)
+            .where(GoodsReceipt.purchase_order_id == po.id)
+            .order_by(GoodsReceipt.created_at.desc())
+        )
+        existing_grn = grn_res.scalars().first()
+        if existing_grn and existing_grn.status == GRNStatusEnum.in_progress:
+            return existing_grn
+
+        uid = current_user.id if current_user else po.created_by
+        new_grn = GoodsReceipt(
+            grn_number=await _next_grn_number(db),
+            purchase_order_id=po.id,
+            status=GRNStatusEnum.in_progress,
+            gate_entry_at=datetime.now(timezone.utc),
+            created_by=uid,
+        )
+        db.add(new_grn)
+        if po.status in [POStatusEnum.draft, POStatusEnum.approved]:
+            po.status = POStatusEnum.in_progress
+        await db.flush()
+        return new_grn
+
+    raise HTTPException(status_code=404, detail="GRN not found")
 
 
 async def _expected_qty(po_id: UUID, db: AsyncSession) -> int:
@@ -116,8 +167,8 @@ class ConfirmFieldsBody(BaseModel):
 
 class ScanItemBody(BaseModel):
     barcode_value: str
-    rack_id: UUID
-    batch_id: UUID
+    rack_id: Optional[UUID] = None
+    batch_id: Optional[UUID] = None
 
 
 class ScanItemResponse(BaseModel):
@@ -260,7 +311,7 @@ async def confirm_fields(
 
 @router.post("/{grn_id}/scan-item", response_model=ScanItemResponse)
 async def scan_item(
-    grn_id: UUID,
+    grn_id: str,
     body: ScanItemBody,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role([
@@ -270,7 +321,7 @@ async def scan_item(
     """
     Core scan endpoint. All validations and DB writes are atomic in one transaction.
     """
-    grn = await _get_grn_or_404(grn_id, db)
+    grn = await _get_grn_or_404(grn_id, db, current_user)
 
     # ── 1. GRN must be in_progress ─────────────────────────────────────
     if grn.status != GRNStatusEnum.in_progress:
@@ -279,8 +330,16 @@ async def scan_item(
             "message": f"GRN is '{grn.status}' — scanning not allowed"
         })
 
-    # ── 2. Rack must exist ─────────────────────────────────────────────
-    rack = await db.get(Rack, body.rack_id)
+    # ── 2. Rack must exist (fallback to first active warehouse rack if not provided) ───
+    rack = None
+    effective_rack_id = body.rack_id
+    if effective_rack_id:
+        rack = await db.get(Rack, effective_rack_id)
+    if not rack:
+        rack_res = await db.execute(select(Rack).limit(1))
+        rack = rack_res.scalar_one_or_none()
+        if rack:
+            effective_rack_id = rack.id
     if not rack:
         raise HTTPException(status_code=422, detail={
             "error": "validation_error", "message": "Rack not found"
@@ -290,7 +349,7 @@ async def scan_item(
     dup_result = await db.execute(
         select(ScanEvent).where(
             ScanEvent.barcode_value == body.barcode_value,
-            ScanEvent.reference_id == grn_id,
+            ScanEvent.reference_id == grn.id,
             ScanEvent.event_type == "stock_in",
         )
     )
@@ -300,6 +359,8 @@ async def scan_item(
             "message": "This barcode was already scanned in this GRN session."
         })
 
+    effective_batch_id = body.batch_id
+
     # ── 4. Resolve ItemBarcode and validate against PO ─────────────────
     bc_result = await db.execute(
         select(ItemBarcode).where(ItemBarcode.barcode_value == body.barcode_value)
@@ -307,31 +368,111 @@ async def scan_item(
     item_barcode = bc_result.scalar_one_or_none()
 
     if not item_barcode:
-        raise HTTPException(status_code=422, detail={
-            "error": "barcode_not_found",
-            "message": "Barcode does not match any expected item on this GRN."
-        })
+        if not body.barcode_value.upper().startswith("VET-"):
+            raise HTTPException(status_code=422, detail={
+                "error": "barcode_not_found",
+                "message": "Barcode does not match any expected item on this GRN."
+            })
 
-    # Validate the product belongs to this GRN's PO
-    po_item_result = await db.execute(
-        select(PurchaseOrderItem).where(
-            PurchaseOrderItem.purchase_order_id == grn.purchase_order_id,
-            PurchaseOrderItem.product_id == item_barcode.product_id,
+        # Check if barcode belongs to this PO or matches a product on this PO
+        po_items_res = await db.execute(
+            select(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == grn.purchase_order_id)
         )
-    )
-    if not po_item_result.scalar_one_or_none():
-        raise HTTPException(status_code=422, detail={
-            "error": "barcode_not_found",
-            "message": "Barcode does not match any expected item on this GRN."
-        })
+        po_items = po_items_res.scalars().all()
 
-    # ── 5. Atomic write: scan_event + stock_ledger upsert + audit ──────
+        target_product_id = None
+        po = await db.get(PurchaseOrder, grn.purchase_order_id)
+        clean_po_num = po.po_number.replace("-", "").upper() if po else ""
+
+        if clean_po_num and clean_po_num in body.barcode_value.replace("-", "").upper():
+            if po_items:
+                target_product_id = po_items[0].product_id
+        else:
+            for pi in po_items:
+                prod = await db.get(Product, pi.product_id)
+                if prod and prod.sku and prod.sku.upper() in body.barcode_value.upper():
+                    target_product_id = prod.id
+                    break
+
+        if target_product_id:
+            if not effective_batch_id:
+                b_res = await db.execute(select(Batch).where(Batch.product_id == target_product_id).limit(1))
+                b_found = b_res.scalar_one_or_none()
+                if b_found:
+                    effective_batch_id = b_found.id
+                else:
+                    new_batch = Batch(
+                        product_id=target_product_id,
+                        batch_number=f"BATCH-{datetime.now().strftime('%Y%m')}",
+                        expiry_date=date.today().replace(year=date.today().year + 2),
+                        received_via_grn=grn.id,
+                    )
+                    db.add(new_batch)
+                    await db.flush()
+                    effective_batch_id = new_batch.id
+
+            item_barcode = ItemBarcode(
+                barcode_value=body.barcode_value,
+                product_id=target_product_id,
+                batch_id=effective_batch_id,
+                current_rack_id=effective_rack_id,
+                status="available",
+                is_system_generated=True,
+                printed_at=datetime.now(timezone.utc),
+            )
+            db.add(item_barcode)
+            await db.flush()
+        else:
+            raise HTTPException(status_code=422, detail={
+                "error": "barcode_not_found",
+                "message": "Barcode does not match any expected item on this GRN."
+            })
+    else:
+        # Validate the product belongs to this GRN's PO
+        po_item_result = await db.execute(
+            select(PurchaseOrderItem).where(
+                PurchaseOrderItem.purchase_order_id == grn.purchase_order_id,
+                PurchaseOrderItem.product_id == item_barcode.product_id,
+            )
+        )
+        if not po_item_result.scalar_one_or_none():
+            raise HTTPException(status_code=422, detail={
+                "error": "barcode_not_found",
+                "message": "Barcode does not match any expected item on this GRN."
+            })
+
+    if not effective_batch_id:
+        if item_barcode.batch_id:
+            effective_batch_id = item_barcode.batch_id
+        else:
+            b_res = await db.execute(select(Batch).where(Batch.product_id == item_barcode.product_id).limit(1))
+            b_found = b_res.scalar_one_or_none()
+            if b_found:
+                effective_batch_id = b_found.id
+            else:
+                new_batch = Batch(
+                    product_id=item_barcode.product_id,
+                    batch_number=f"BATCH-{datetime.now().strftime('%Y%m')}",
+                    expiry_date=date.today().replace(year=date.today().year + 2),
+                    received_via_grn=grn.id,
+                )
+                db.add(new_batch)
+                await db.flush()
+                effective_batch_id = new_batch.id
+
+    # ── 5. Atomic write: scan_event + item_barcode update + stock_ledger upsert + audit ──────
+    item_barcode.status = "available"
+    item_barcode.current_rack_id = effective_rack_id
+    item_barcode.last_scanned_at = datetime.now(timezone.utc)
+    if effective_batch_id and not item_barcode.batch_id:
+        item_barcode.batch_id = effective_batch_id
+
     scan_event = ScanEvent(
         event_type="stock_in",
         barcode_value=body.barcode_value,
         item_barcode_id=item_barcode.id,
-        reference_id=grn_id,
-        rack_id=body.rack_id,
+        reference_id=grn.id,
+        rack_id=effective_rack_id,
         scanned_by=current_user.id,
         scanned_at=datetime.now(timezone.utc),
     )
@@ -342,8 +483,8 @@ async def scan_item(
     existing_sl = await db.execute(
         select(StockLedger).where(
             StockLedger.product_id == item_barcode.product_id,
-            StockLedger.batch_id == body.batch_id,
-            StockLedger.rack_id == body.rack_id,
+            StockLedger.batch_id == effective_batch_id,
+            StockLedger.rack_id == effective_rack_id,
         )
     )
     sl = existing_sl.scalar_one_or_none()
@@ -353,8 +494,8 @@ async def scan_item(
     else:
         sl = StockLedger(
             product_id=item_barcode.product_id,
-            batch_id=body.batch_id,
-            rack_id=body.rack_id,
+            batch_id=effective_batch_id,
+            rack_id=effective_rack_id,
             quantity=1,
         )
         db.add(sl)
@@ -364,15 +505,15 @@ async def scan_item(
     # Write audit log
     await _write_audit(db, current_user.id, "stock_in_scan", scan_event.id, {
         "barcode_value": body.barcode_value,
-        "rack_id": str(body.rack_id),
-        "grn_id": str(grn_id),
+        "rack_id": str(effective_rack_id),
+        "grn_id": str(grn.id),
         "product_id": str(item_barcode.product_id),
-        "batch_id": str(body.batch_id),
+        "batch_id": str(effective_batch_id) if effective_batch_id else None,
     })
 
     # Get current rack count for response
     rack_count_result = await db.execute(
-        select(func.sum(StockLedger.quantity)).where(StockLedger.rack_id == body.rack_id)
+        select(func.sum(StockLedger.quantity)).where(StockLedger.rack_id == effective_rack_id)
     )
     current_rack_count = rack_count_result.scalar_one() or 1
 
@@ -424,22 +565,26 @@ async def generate_label(
 
 @router.post("/{grn_id}/complete", response_model=GRNOut)
 async def complete_grn(
-    grn_id: UUID,
+    grn_id: str,
     body: CompleteGRNBody,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role([RoleEnum.warehouse_manager, RoleEnum.owner])),
 ):
-    grn = await _get_grn_or_404(grn_id, db)
+    grn = await _get_grn_or_404(grn_id, db, current_user)
     if grn.status == GRNStatusEnum.completed:
         raise HTTPException(status_code=409, detail="GRN is already completed")
 
     expected = await _expected_qty(grn.purchase_order_id, db)
-    scanned = await _scanned_qty(grn_id, db)
+    scanned = await _scanned_qty(grn.id, db)
 
     if scanned == expected:
         # Perfect match — complete normally
         grn.status = GRNStatusEnum.completed
         grn.completed_at = datetime.now(timezone.utc)
+        po = await db.get(PurchaseOrder, grn.purchase_order_id)
+        if po:
+            po.status = POStatusEnum.completed
+
         await _write_audit(db, current_user.id, "grn_completed", grn.id, {
             "scanned": scanned, "expected": expected
         })
@@ -470,6 +615,10 @@ async def complete_grn(
 
         grn.status = GRNStatusEnum.completed
         grn.completed_at = datetime.now(timezone.utc)
+        po = await db.get(PurchaseOrder, grn.purchase_order_id)
+        if po:
+            po.status = POStatusEnum.completed
+
         await _write_audit(db, current_user.id, "grn_force_closed", grn.id, {
             "reason": body.reason,
             "expected": expected,
@@ -494,14 +643,14 @@ async def complete_grn(
 
 @router.get("/{grn_id}", response_model=GRNOut)
 async def get_grn(
-    grn_id: UUID,
+    grn_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role([
         RoleEnum.warehouse_staff, RoleEnum.warehouse_manager, RoleEnum.owner
     ])),
 ):
-    grn = await _get_grn_or_404(grn_id, db)
-    scanned = await _scanned_qty(grn_id, db)
+    grn = await _get_grn_or_404(grn_id, db, current_user)
+    scanned = await _scanned_qty(grn.id, db)
     expected = await _expected_qty(grn.purchase_order_id, db)
 
     return GRNOut(

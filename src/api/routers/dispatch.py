@@ -80,14 +80,17 @@ class CompleteDispatchBody(BaseModel):
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 async def _write_audit(db, user_id, action, entity_id, payload):
-    last = await db.execute(select(AuditLog).order_by(AuditLog.id.desc()).limit(1))
+    last = await db.execute(
+        select(AuditLog).order_by(AuditLog.id.desc()).limit(1).with_for_update()
+    )
     last_log = last.scalar_one_or_none()
     prev_hash = last_log.current_hash if last_log else "0" * 64
+    uid = user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(str(user_id))
     log = AuditLog(
-        user_id=user_id,
+        user_id=uid,
         action=action,
         entity_type="dispatches",
-        entity_id=entity_id,
+        entity_id=str(entity_id),
         changes=payload,
         previous_hash=prev_hash,
     )
@@ -95,6 +98,35 @@ async def _write_audit(db, user_id, action, entity_id, payload):
     db.add(log)
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
+
+@router.get("/sales-orders", response_model=List[SOOut])
+async def list_sales_orders(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.warehouse_staff, RoleEnum.warehouse_manager, RoleEnum.owner])),
+):
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(select(SalesOrder).options(selectinload(SalesOrder.items)))
+    sos = result.scalars().all()
+    out = []
+    for so in sos:
+        items_out = [SOItemOut(product_id=it.product_id, ordered_qty=it.ordered_qty) for it in so.items]
+        out.append(SOOut(
+            id=so.id,
+            order_reference=so.order_reference,
+            customer_name=so.customer_name,
+            status=so.status,
+            created_at=so.created_at,
+            items=items_out
+        ))
+    return out
+
+@router.get("/dispatches", response_model=List[DispatchOut])
+async def list_dispatches(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.warehouse_staff, RoleEnum.warehouse_manager, RoleEnum.owner])),
+):
+    result = await db.execute(select(Dispatch))
+    return result.scalars().all()
 
 @router.post("/sales-orders", response_model=SOOut, status_code=status.HTTP_201_CREATED)
 async def create_sales_order(
@@ -184,13 +216,25 @@ async def dispatch_scan_item(
         )
     )
     if dup_result.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail={"error": "duplicate_scan", "message": "This barcode was already scanned."})
+        raise HTTPException(status_code=409, detail={"error": "duplicate_scan", "message": "This barcode was already scanned in this dispatch."})
 
     # Validate barcode exists
     bc_res = await db.execute(select(ItemBarcode).where(ItemBarcode.barcode_value == body.barcode_value))
     bc = bc_res.scalar_one_or_none()
     if not bc:
         raise HTTPException(status_code=422, detail={"error": "barcode_not_found", "message": "Barcode not recognized."})
+
+    # Validate item lifecycle state
+    if bc.status == "dispatched":
+        raise HTTPException(status_code=409, detail={"error": "item_already_dispatched", "message": "This item barcode has already been dispatched."})
+    if bc.status in ["damaged_hold", "quarantine", "returned_hold"]:
+        raise HTTPException(status_code=409, detail={"error": "item_in_hold", "message": f"Item cannot be dispatched - current status is '{bc.status}'."})
+    if bc.status == "reserved_pick":
+        raise HTTPException(status_code=409, detail={"error": "item_reserved", "message": "This item is already reserved in an active dispatch session."})
+
+    # Validate physical rack location
+    if bc.current_rack_id and bc.current_rack_id != body.rack_id:
+        raise HTTPException(status_code=422, detail={"error": "rack_mismatch", "message": f"Item physical location mismatch: expected on rack {bc.current_rack_id}, scanned at {body.rack_id}."})
 
     # Validate product is on order
     item_res = await db.execute(
@@ -200,7 +244,11 @@ async def dispatch_scan_item(
         )
     )
     if not item_res.scalar_one_or_none():
-        raise HTTPException(status_code=422, detail={"error": "barcode_not_found", "message": "Product not on this order."})
+        raise HTTPException(status_code=422, detail={"error": "product_not_on_order", "message": "Product not on this order."})
+
+    # Mark barcode reserved
+    bc.status = "reserved_pick"
+    bc.last_scanned_at = datetime.now(timezone.utc)
 
     # Write scan_event
     scan_event = ScanEvent(
@@ -263,7 +311,7 @@ async def complete_dispatch(
         await _write_audit(db, current_user.id, "dispatch_completed", disp.id, {})
         await NotificationService.enqueue(db, "stock_out", f"Dispatch {disp.id} completed successfully.")
 
-    # Deduct stock on completion
+    # Deduct stock on completion atomically with strict availability verification
     scans_result = await db.execute(
         select(ScanEvent).where(
             ScanEvent.reference_id == id,
@@ -279,11 +327,19 @@ async def complete_dispatch(
                     StockLedger.product_id == bc_res.product_id,
                     StockLedger.batch_id == bc_res.batch_id,
                     StockLedger.rack_id == scan.rack_id
-                )
+                ).with_for_update()
             )
             sl = sl_res.scalar_one_or_none()
-            if sl:
-                sl.quantity = max(0, sl.quantity - 1)
+            if not sl or sl.quantity < 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"error": "insufficient_stock", "message": f"Insufficient stock on rack {scan.rack_id} for barcode {bc_res.barcode_value}."}
+                )
+            sl.quantity -= 1
+            sl.updated_at = datetime.now(timezone.utc)
+            bc_res.status = "dispatched"
+            bc_res.current_rack_id = None
+            bc_res.last_scanned_at = datetime.now(timezone.utc)
 
     await db.commit()
     await db.refresh(disp)

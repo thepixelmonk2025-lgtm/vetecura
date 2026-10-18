@@ -3,6 +3,7 @@ import enum
 from sqlalchemy import Column, String, Boolean, Integer, DateTime, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from src.db.session import Base
 
 
@@ -45,6 +46,8 @@ class PurchaseOrder(Base):
     approved_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    items = relationship("PurchaseOrderItem", back_populates="purchase_order", lazy="noload")
+
 
 class PurchaseOrderItem(Base):
     __tablename__ = "purchase_order_items"
@@ -54,6 +57,8 @@ class PurchaseOrderItem(Base):
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     ordered_qty = Column(Integer, nullable=False)
     unit_price = Column(String(20))  # Numeric stored as string for flexibility
+
+    purchase_order = relationship("PurchaseOrder", back_populates="items")
 
 
 class GRNStatusEnum(str, enum.Enum):

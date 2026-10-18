@@ -1,21 +1,21 @@
 {
-  "name": "Vetecura IMS Warehouse PWA",
-  "short_name": "Vetecura Scanner",
-  "description": "Barcode-first inventory scanning app for Vetecura warehouse staff",
+  "name": "Vetecura IMS Mobile Scanner",
+  "short_name": "Vetecura Scan",
+  "description": "Barcode-first inventory scanning and physical verification PWA",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#1e293b",
+  "background_color": "#052620",
+  "theme_color": "#00a884",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/vite.svg",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/svg+xml"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/vite.svg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/svg+xml"
     }
   ]
 }
