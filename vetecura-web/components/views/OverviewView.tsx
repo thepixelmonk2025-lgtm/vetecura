@@ -67,16 +67,21 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          <a
-            href="http://localhost:5173"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-2xl text-xs font-black shadow-lg shadow-emerald-500/25 transition-all hover:scale-105"
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                const scannerUrl = window.location.hostname !== "localhost" 
+                  ? `${window.location.origin}/pwa/` 
+                  : "http://localhost:5173";
+                window.open(scannerUrl, "_blank");
+              }
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-2xl text-xs font-black shadow-lg shadow-emerald-500/25 transition-all hover:scale-105 cursor-pointer"
             title="Open scanner screen for mobile camera or handheld barcode gun"
           >
             <Smartphone className="w-4 h-4" />
             <span>Open Barcode Scanner</span>
-          </a>
+          </button>
           <button
             onClick={onVerifyLedger}
             className="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-2xl text-xs font-bold transition-all cursor-pointer"
@@ -229,8 +234,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="table-responsive-container rounded-2xl border border-slate-100">
+            <table className="w-full text-left text-xs min-w-[580px] sm:min-w-full">
               <thead className="bg-slate-50 text-slate-400 font-bold border-y border-slate-100 uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="p-3">Order / PO #</th>

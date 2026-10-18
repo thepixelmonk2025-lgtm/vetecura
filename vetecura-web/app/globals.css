@@ -55,3 +55,18 @@ body {
 .animate-pulse-glow {
   animation: pulseGlow 2s infinite ease-in-out;
 }
+
+/* Touch-optimized horizontal table scrolling with momentum */
+.table-responsive-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  scrollbar-width: thin;
+}
+
+/* Sub-card responsive tables on small mobile devices */
+@media (max-width: 640px) {
+  .table-responsive-container table {
+    min-width: 640px;
+  }
+}

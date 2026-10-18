@@ -86,15 +86,21 @@ export const OutboundView: React.FC<OutboundViewProps> = ({
               <span>+ New Customer Order</span>
             </button>
           )}
-          <a
-            href={`http://localhost:5173/?type=dispatch&po=${selectedSO.order_reference}&expected=${selectedSO.expected_count}&scanned=${selectedSO.scanned_count}&customer=${encodeURIComponent(selectedSO.customer_name)}`}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                const base = window.location.hostname !== "localhost" 
+                  ? `${window.location.origin}/pwa/` 
+                  : "http://localhost:5173/";
+                const url = `${base}?type=dispatch&po=${selectedSO.order_reference}&expected=${selectedSO.expected_count}&scanned=${selectedSO.scanned_count}&customer=${encodeURIComponent(selectedSO.customer_name)}`;
+                window.open(url, "_blank");
+              }
+            }}
             className="flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-2xl shadow-md shadow-blue-600/15 transition-all cursor-pointer"
           >
             <Smartphone className="w-4 h-4" />
             <span>Open Dispatch Scanner</span>
-          </a>
+          </button>
         </div>
       </div>
 
@@ -128,15 +134,21 @@ export const OutboundView: React.FC<OutboundViewProps> = ({
               </p>
             </div>
             <div className="border-l border-slate-200 pl-4">
-              <a
-                href={`http://localhost:5173/?type=dispatch&po=${selectedSO.order_reference}&expected=${selectedSO.expected_count}&scanned=${selectedSO.scanned_count}&customer=${encodeURIComponent(selectedSO.customer_name)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-xs transition-all text-xs"
+              <button
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    const base = window.location.hostname !== "localhost" 
+                      ? `${window.location.origin}/pwa/` 
+                      : "http://localhost:5173/";
+                    const url = `${base}?type=dispatch&po=${selectedSO.order_reference}&expected=${selectedSO.expected_count}&scanned=${selectedSO.scanned_count}&customer=${encodeURIComponent(selectedSO.customer_name)}`;
+                    window.open(url, "_blank");
+                  }
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-xs transition-all text-xs cursor-pointer"
               >
                 <Smartphone className="w-3.5 h-3.5" />
                 <span>Scan & Pack Order</span>
-              </a>
+              </button>
             </div>
           </div>
         )}
@@ -199,8 +211,8 @@ export const OutboundView: React.FC<OutboundViewProps> = ({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="table-responsive-container rounded-2xl border border-slate-100">
+          <table className="w-full text-left text-xs min-w-[720px] sm:min-w-full">
             <thead className="bg-slate-50 text-slate-400 font-bold border-y border-slate-100 uppercase text-[10px] tracking-wider">
               <tr>
                 <th className="p-3.5 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('order_reference')}>

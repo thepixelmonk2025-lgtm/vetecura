@@ -196,8 +196,8 @@ export const InboundView: React.FC<InboundViewProps> = ({
         </div>
 
         {/* PO Table with Date & Time Column & Audited Actions */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="table-responsive-container rounded-2xl border border-slate-100">
+          <table className="w-full text-left text-xs min-w-[700px] sm:min-w-full">
             <thead className="bg-slate-50 text-slate-400 font-bold border-y border-slate-100 uppercase text-[10px] tracking-wider">
               <tr>
                 <th className="p-3.5 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => requestSort('po_number')}>

@@ -348,8 +348,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <div className="table-responsive-container">
+              <table className="w-full text-left border-collapse min-w-[700px] sm:min-w-full">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
                     <th className="py-3.5 px-6">Product / Code</th>
@@ -505,8 +505,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <div className="table-responsive-container">
+              <table className="w-full text-left border-collapse min-w-[700px] sm:min-w-full">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
                     <th className="py-3.5 px-6">Product & Batch #</th>
