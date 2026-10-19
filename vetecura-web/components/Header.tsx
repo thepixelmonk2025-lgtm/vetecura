@@ -47,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
 
   return (
-    <header className="min-h-[72px] sm:min-h-[76px] py-3.5 sm:py-4 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-40 shadow-xs gap-3 sm:gap-4">
+    <header className="min-h-[72px] sm:min-h-[76px] py-3.5 sm:py-4 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-40 shadow-sm gap-3 sm:gap-4 shrink-0">
       {/* Left: Mobile Menu Trigger + Omni-Search Input */}
       <div className="flex items-center gap-2.5 flex-1 max-w-md">
         {onToggleMobileMenu && (

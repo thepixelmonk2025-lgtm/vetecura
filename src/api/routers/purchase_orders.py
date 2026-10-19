@@ -20,10 +20,12 @@ router = APIRouter()
 
 # ── Schemas ────────────────────────────────────────────────────────────────
 
+from typing import Optional, Union, Any
+
 class POItemCreate(BaseModel):
     product_id: UUID
     ordered_qty: int
-    unit_price: Optional[float] = None
+    unit_price: Optional[Union[float, str]] = None
 
 
 class POCreate(BaseModel):
@@ -35,7 +37,7 @@ class POItemOut(BaseModel):
     id: UUID
     product_id: UUID
     ordered_qty: int
-    unit_price: Optional[float]
+    unit_price: Optional[Any] = None
 
     class Config:
         from_attributes = True

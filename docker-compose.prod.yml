@@ -56,6 +56,10 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://vetecura_app:${DB_PASSWORD:-vetecura_secure_pass_2026}@postgres:5432/vetecura
       - REDIS_URL=redis://redis:6379/0
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-8688187742:AAG6aq-umUJpuQ6lS-IP3s11ENWPnWOrpy4}
+      - TELEGRAM_CHAT_ID_OPERATIONS=${TELEGRAM_CHAT_ID_OPERATIONS:--5484338930}
+      - TELEGRAM_CHAT_ID_ALERTS=${TELEGRAM_CHAT_ID_ALERTS:--5136252998}
+      - TELEGRAM_CHAT_ID_SECURITY=${TELEGRAM_CHAT_ID_SECURITY:--5507131939}
     depends_on:
       - backend
 
@@ -65,6 +69,11 @@ services:
       dockerfile: Dockerfile
     container_name: vetecura_web_admin
     restart: always
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-8688187742:AAG6aq-umUJpuQ6lS-IP3s11ENWPnWOrpy4}
+      - TELEGRAM_CHAT_ID_OPERATIONS=${TELEGRAM_CHAT_ID_OPERATIONS:--5484338930}
+      - TELEGRAM_CHAT_ID_ALERTS=${TELEGRAM_CHAT_ID_ALERTS:--5136252998}
+      - TELEGRAM_CHAT_ID_SECURITY=${TELEGRAM_CHAT_ID_SECURITY:--5507131939}
 
   pwa_scanner:
     build:
