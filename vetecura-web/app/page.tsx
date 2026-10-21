@@ -139,19 +139,24 @@ export default function WebAdminDashboard() {
   const loadCoreData = useCallback(async (token: string) => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [supRes, prodRes, poRes, soRes, dispRes, alertRes, expiryRes, lowStockRes, auditRes, usersRes, racksRes, metricsRes, writeoffsRes, ledgerRes] = await Promise.all([
+      // Batch 1: Primary entities (suppliers, products, racks, users, racks, orders)
+      const [supRes, prodRes, poRes, soRes, dispRes, racksRes, usersRes] = await Promise.all([
         fetch(`${API_BASE_URL}/suppliers`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/products`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/purchase-orders`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/dispatch/sales-orders`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/dispatch/dispatches`, { headers }).catch(() => null),
+        fetch(`${API_BASE_URL}/racks`, { headers }).catch(() => null),
+        fetch(`${API_BASE_URL}/users`, { headers }).catch(() => null),
+      ]);
+
+      // Batch 2: Reports, logs & ledger details
+      const [alertRes, expiryRes, lowStockRes, auditRes, metricsRes, writeoffsRes, ledgerRes] = await Promise.all([
         fetch(`${API_BASE_URL}/notifications/log`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/reports/expiry-risk`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/reports/low-stock`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/reports/audit-extract`, { headers }).catch(() => null),
-        fetch(`${API_BASE_URL}/users`, { headers }).catch(() => null),
-        fetch(`${API_BASE_URL}/racks`, { headers }).catch(() => null),
-        fetch(`${API_BASE_URL}/reports/dashboard/owner`, { headers }).catch(() => null), // Always owner for aggregate view initially
+        fetch(`${API_BASE_URL}/reports/dashboard/owner`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/writeoffs`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/reports/stock-ledger-details`, { headers }).catch(() => null),
       ]);
