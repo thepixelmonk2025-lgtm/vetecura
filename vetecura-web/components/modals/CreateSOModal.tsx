@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Truck, Package, X, CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { Truck, Package, X, CheckCircle2, Plus, Minus, Trash2 } from "lucide-react";
 import { Product } from "../types";
 import { CustomSelect } from "../CustomSelect";
 
@@ -143,18 +143,44 @@ export const CreateSOModal: React.FC<CreateSOModalProps> = ({
                       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                         Quantity
                       </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="10000"
-                        required
-                        value={item.ordered_qty}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          handleItemChange(index, "ordered_qty", val === "" ? "" : Number(val));
-                        }}
-                        className="w-full px-3 py-2 text-xs font-bold rounded-xl bg-white border border-slate-200 text-slate-900 outline-none focus:border-slate-900 transition-all"
-                      />
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 focus-within:border-slate-900 transition-all">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = Number(item.ordered_qty) || 1;
+                            if (current > 1) {
+                              handleItemChange(index, "ordered_qty", current - 10 > 0 ? current - 10 : 1);
+                            }
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all cursor-pointer shrink-0"
+                          title="-10 units"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10000"
+                          required
+                          value={item.ordered_qty}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            handleItemChange(index, "ordered_qty", val === "" ? "" : Number(val));
+                          }}
+                          className="w-full text-center px-1 py-1 text-xs font-bold text-slate-900 outline-none bg-transparent"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = Number(item.ordered_qty) || 0;
+                            handleItemChange(index, "ordered_qty", current + 10);
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all cursor-pointer shrink-0"
+                          title="+10 units"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     {items.length > 1 && (
                       <button
