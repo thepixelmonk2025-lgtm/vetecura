@@ -167,8 +167,10 @@ async def create_purchase_order(
     )
 
     await db.commit()
-    await db.refresh(po)
-    return po
+    res = await db.execute(
+        select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == po.id)
+    )
+    return res.scalar_one()
 
 
 @router.post("/{po_id}/submit", response_model=POOut)
@@ -196,8 +198,10 @@ async def submit_purchase_order(
     )
 
     await db.commit()
-    await db.refresh(po)
-    return po
+    res = await db.execute(
+        select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == po.id)
+    )
+    return res.scalar_one()
 
 
 @router.post("/{po_id}/approve", response_model=POOut)
@@ -227,8 +231,10 @@ async def approve_purchase_order(
     )
 
     await db.commit()
-    await db.refresh(po)
-    return po
+    res = await db.execute(
+        select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == po.id)
+    )
+    return res.scalar_one()
 
 
 @router.post("/{po_id}/reject", response_model=POOut)
@@ -257,8 +263,10 @@ async def reject_purchase_order(
     )
 
     await db.commit()
-    await db.refresh(po)
-    return po
+    res = await db.execute(
+        select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == po.id)
+    )
+    return res.scalar_one()
 
 
 @router.get("/{po_id}", response_model=POOut)

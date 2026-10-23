@@ -116,8 +116,30 @@ export default function WebAdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [racks, setRacks] = useState<RackItem[]>([]);
 
-  const [poList, setPoList] = useState<PurchaseOrderRow[]>(DEFAULT_POS);
-  const [salesOrderList, setSalesOrderList] = useState<SalesOrderRow[]>(DEFAULT_SOS);
+  const [poList, setPoList] = useState<PurchaseOrderRow[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("vetecura_pos");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return DEFAULT_POS;
+  });
+  const [salesOrderList, setSalesOrderList] = useState<SalesOrderRow[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("vetecura_sos");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return DEFAULT_SOS;
+  });
   const [writeoffList, setWriteoffList] = useState<DamageWriteoffItem[]>(DEFAULT_WRITEOFFS);
 
 
@@ -208,7 +230,35 @@ export default function WebAdminDashboard() {
             items: po.items || [],
           };
         });
-        setPoList(backendPOs);
+
+        // Merge backend POs with local POs so newly created orders are never lost
+        let mergedPOs = backendPOs;
+        if (typeof window !== "undefined") {
+          try {
+            const localSaved = localStorage.getItem("vetecura_pos");
+            if (localSaved) {
+              const localList: PurchaseOrderRow[] = JSON.parse(localSaved);
+              if (Array.isArray(localList)) {
+                const backendPONumbers = new Set(backendPOs.map(p => p.po_number));
+                const backendPOIds = new Set(backendPOs.map(p => p.id));
+                const pendingLocal = localList.filter(p => !backendPONumbers.has(p.po_number) && (!p.id || !backendPOIds.has(p.id)));
+                mergedPOs = [...pendingLocal, ...backendPOs];
+              }
+            }
+          } catch (e) {}
+          localStorage.setItem("vetecura_pos", JSON.stringify(mergedPOs));
+        }
+        setPoList(mergedPOs);
+      } else {
+        if (typeof window !== "undefined") {
+          try {
+            const localSaved = localStorage.getItem("vetecura_pos");
+            if (localSaved) {
+              const localList = JSON.parse(localSaved);
+              if (Array.isArray(localList) && localList.length > 0) setPoList(localList);
+            }
+          } catch (e) {}
+        }
       }
 
       if (soRes?.ok && dispRes?.ok) {
@@ -229,7 +279,34 @@ export default function WebAdminDashboard() {
             items: so.items || [],
           };
         });
-        setSalesOrderList(backendSOs);
+
+        let mergedSOs = backendSOs;
+        if (typeof window !== "undefined") {
+          try {
+            const localSaved = localStorage.getItem("vetecura_sos");
+            if (localSaved) {
+              const localList: SalesOrderRow[] = JSON.parse(localSaved);
+              if (Array.isArray(localList)) {
+                const backendRefs = new Set(backendSOs.map((s: any) => s.order_reference));
+                const backendIds = new Set(backendSOs.map((s: any) => s.id));
+                const pendingLocal = localList.filter(s => !backendRefs.has(s.order_reference) && (!s.id || !backendIds.has(s.id)));
+                mergedSOs = [...pendingLocal, ...backendSOs];
+              }
+            }
+          } catch (e) {}
+          localStorage.setItem("vetecura_sos", JSON.stringify(mergedSOs));
+        }
+        setSalesOrderList(mergedSOs);
+      } else {
+        if (typeof window !== "undefined") {
+          try {
+            const localSaved = localStorage.getItem("vetecura_sos");
+            if (localSaved) {
+              const localList = JSON.parse(localSaved);
+              if (Array.isArray(localList) && localList.length > 0) setSalesOrderList(localList);
+            }
+          } catch (e) {}
+        }
       }
 
       if (writeoffsRes?.ok) {
@@ -255,6 +332,22 @@ export default function WebAdminDashboard() {
   // Initialize Session / Auth
   useEffect(() => {
     const initAuth = async () => {
+      // 1. Immediately hydrate local orders from localStorage
+      if (typeof window !== "undefined") {
+        try {
+          const savedPOs = localStorage.getItem("vetecura_pos");
+          if (savedPOs) {
+            const parsed = JSON.parse(savedPOs);
+            if (Array.isArray(parsed) && parsed.length > 0) setPoList(parsed);
+          }
+          const savedSOs = localStorage.getItem("vetecura_sos");
+          if (savedSOs) {
+            const parsed = JSON.parse(savedSOs);
+            if (Array.isArray(parsed) && parsed.length > 0) setSalesOrderList(parsed);
+          }
+        } catch (e) {}
+      }
+
       const saved = typeof window !== "undefined" ? sessionStorage.getItem("vetecura_token") : null;
       if (saved) {
         setAuthToken(saved);
@@ -392,9 +485,10 @@ export default function WebAdminDashboard() {
 
     const supplierObj = suppliers.find((s) => s.id === supplierId) || suppliers[0];
     const generatedPoNumber = `PO-${now.getFullYear()}-${String(poList.length + 42).padStart(4, "0")}`;
-    const totalUnits = items.reduce((s, i) => s + i.ordered_qty, 0);
+    const totalUnits = items.reduce((s, i) => s + (Number(i.ordered_qty) || 0), 0);
 
-    const newPO: PurchaseOrderRow = {
+    let activePO: PurchaseOrderRow = {
+      id: String(Date.now()),
       po_number: generatedPoNumber,
       supplier: supplierObj ? supplierObj.name : "PharmaCare Laboratories",
       expected_units: totalUnits,
@@ -404,10 +498,11 @@ export default function WebAdminDashboard() {
       items: items,
     };
 
-    const updatedList = [newPO, ...poList];
-    setPoList(updatedList);
+    // Immediate local save so UI updates immediately and refresh will never lose it
+    const currentList = [activePO, ...poList.filter(p => p.po_number !== activePO.po_number)];
+    setPoList(currentList);
     if (typeof window !== "undefined") {
-      localStorage.setItem("vetecura_pos", JSON.stringify(updatedList));
+      localStorage.setItem("vetecura_pos", JSON.stringify(currentList));
     }
 
     // Instantly notify Telegram Warehouse Operations group (Stock In)
@@ -418,8 +513,8 @@ export default function WebAdminDashboard() {
 
     const poAlert = [
       `📋 <b>[NEW PURCHASE ORDER CREATED]</b>`,
-      `<b>PO Number:</b> <code>${newPO.po_number}</code>`,
-      `<b>Supplier:</b> ${newPO.supplier}`,
+      `<b>PO Number:</b> <code>${activePO.po_number}</code>`,
+      `<b>Supplier:</b> ${activePO.supplier}`,
       `<b>Total Items:</b> ${totalUnits} Units (${items.length} line items)`,
       `<b>Items Breakdown:</b>\n${itemListString}`,
       `<b>Status:</b> Draft - Awaiting Gate Arrival & Barcode Scan`,
@@ -429,26 +524,39 @@ export default function WebAdminDashboard() {
     sendTelegramNotification("stock_in", poAlert);
 
     try {
-      if (authToken) {
+      if (authToken && !authToken.startsWith("mock-token-")) {
         const res = await fetch(`${API_BASE_URL}/purchase-orders`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
           body: JSON.stringify({ supplier_id: supplierId, items }),
         });
         if (res.ok) {
+          const backendData: POOut = await res.json();
+          activePO = {
+            id: backendData.id,
+            po_number: backendData.po_number,
+            supplier: supplierObj ? supplierObj.name : "PharmaCare Laboratories",
+            expected_units: backendData.items?.reduce((s, i) => s + i.ordered_qty, 0) || totalUnits,
+            scanned_units: 0,
+            status: "Draft",
+            created_at: formattedTime,
+            items: backendData.items || items,
+          };
+          const syncedList = [activePO, ...poList.filter(p => p.id !== activePO.id && p.po_number !== activePO.po_number && p.po_number !== generatedPoNumber)];
+          setPoList(syncedList);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("vetecura_pos", JSON.stringify(syncedList));
+          }
           await loadCoreData(authToken);
         } else {
-          setPoList([newPO, ...poList]);
+          console.warn("Backend PO creation non-200, kept in local storage");
         }
-      } else {
-        setPoList([newPO, ...poList]);
       }
       setIsCreatePOOpen(false);
-      alert(`✅ Purchase Order ${newPO.po_number} (${newPO.supplier}) created successfully!\n\n📲 Telegram notification sent to Operations group.`);
+      alert(`✅ Purchase Order ${activePO.po_number} (${activePO.supplier}) created successfully!\n\n📲 Telegram notification sent to Operations group.`);
     } catch (e) {
-      setPoList([newPO, ...poList]);
       setIsCreatePOOpen(false);
-      alert(`✅ Purchase Order ${newPO.po_number} created!\n\n📲 Telegram notification sent to Operations group.`);
+      alert(`✅ Purchase Order ${activePO.po_number} created!\n\n📲 Telegram notification sent to Operations group.`);
     }
   };
 
@@ -459,7 +567,7 @@ export default function WebAdminDashboard() {
       timeStyle: "short",
     });
 
-    const totalCount = items.reduce((s, i) => s + i.ordered_qty, 0);
+    const totalCount = items.reduce((s, i) => s + (Number(i.ordered_qty) || 0), 0);
     const newSO: SalesOrderRow = {
       id: String(Date.now()),
       order_reference: `SO-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -470,6 +578,13 @@ export default function WebAdminDashboard() {
       created_at: formattedTime,
       items: items,
     };
+
+    // Immediately persist in local storage
+    const updatedSOs = [newSO, ...salesOrderList.filter(s => s.order_reference !== newSO.order_reference)];
+    setSalesOrderList(updatedSOs);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vetecura_sos", JSON.stringify(updatedSOs));
+    }
 
     // Telegram Notification for Outbound / Stock Out
     const itemListString = items.map((item) => {
@@ -490,7 +605,7 @@ export default function WebAdminDashboard() {
     sendTelegramNotification("stock_out", soAlert);
 
     try {
-      if (authToken) {
+      if (authToken && !authToken.startsWith("mock-token-")) {
         const res = await fetch(`${API_BASE_URL}/dispatch/sales-orders`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
@@ -505,16 +620,11 @@ export default function WebAdminDashboard() {
         });
         if (res.ok) {
           await loadCoreData(authToken);
-        } else {
-          setSalesOrderList([newSO, ...salesOrderList]);
         }
-      } else {
-        setSalesOrderList([newSO, ...salesOrderList]);
       }
       setIsCreateSOOpen(false);
-      alert(`✅ Customer Sales Order ${newSO.order_reference} (${newSO.customer_name}) saved to Database!\n\n📲 Telegram notification sent to Operations group.`);
+      alert(`✅ Customer Sales Order ${newSO.order_reference} (${newSO.customer_name}) saved successfully!\n\n📲 Telegram notification sent to Operations group.`);
     } catch (e) {
-      setSalesOrderList([newSO, ...salesOrderList]);
       setIsCreateSOOpen(false);
       alert(`✅ Sales Order ${newSO.order_reference} created!\n\n📲 Telegram notification sent.`);
     }
