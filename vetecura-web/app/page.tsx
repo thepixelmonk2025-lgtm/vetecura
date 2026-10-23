@@ -329,16 +329,56 @@ export default function WebAdminDashboard() {
     }
   };
 
-  // Telegram Notification Dispatcher
+  // Telegram Notification Dispatcher with Server Route & Direct Client-Side Fallback
   const sendTelegramNotification = async (topic: "stock_in" | "stock_out" | "inventory_alerts" | "security_audit", message: string) => {
+    const BOT_TOKEN = "8688187742:AAG6aq-umUJpuQ6lS-IP3s11ENWPnWOrpy4";
+    const CHATS: Record<string, string> = {
+      stock_in: "-5484338930",
+      stock_out: "-5484338930",
+      inventory_alerts: "-5136252998",
+      security_audit: "-5507131939",
+    };
+    const targetChat = CHATS[topic] || "-5484338930";
+
+    // Attempt 1: Call internal Next.js API route /api/notify
     try {
-      await fetch("/api/notify", {
+      const res = await fetch("/api/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, message }),
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          console.log("✅ Telegram alert dispatched successfully via /api/notify:", topic);
+          return;
+        }
+      }
+      console.warn("⚠️ /api/notify returned non-success, attempting direct fallback to Telegram API...");
+    } catch (routeErr) {
+      console.warn("⚠️ Network error calling /api/notify, attempting direct fallback:", routeErr);
+    }
+
+    // Attempt 2 (Fallback): Direct Telegram API dispatch
+    try {
+      const fallbackUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+      const directRes = await fetch(fallbackUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: targetChat,
+          text: message,
+          parse_mode: "HTML",
+        }),
+      });
+      const directData = await directRes.json();
+      if (directData.ok) {
+        console.log("✅ Direct Telegram notification succeeded:", topic);
+      } else {
+        console.error("❌ Direct Telegram notification error:", directData);
+      }
     } catch (err) {
-      console.warn("Failed to dispatch Telegram notification:", err);
+      console.error("❌ All Telegram notification attempts failed:", err);
     }
   };
 
@@ -1255,6 +1295,7 @@ export default function WebAdminDashboard() {
             <OutboundView
               userRole={userRole}
               salesOrderList={salesOrderList}
+              stockLedgerItems={stockLedgerItems}
               onOpenCreateSO={() => setIsCreateSOOpen(true)}
               onEditSO={handleOpenEditSO}
               onDeleteSO={handleOpenDeleteSO}
@@ -1340,6 +1381,7 @@ export default function WebAdminDashboard() {
         isOpen={isCreateSOOpen}
         onClose={() => setIsCreateSOOpen(false)}
         products={products}
+        stockLedgerItems={stockLedgerItems}
         onCreateSO={handleCreateSO}
       />
 
