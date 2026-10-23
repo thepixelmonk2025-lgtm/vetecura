@@ -109,7 +109,10 @@ export const CreateRackModal: React.FC<CreateRackModalProps> = ({
                 min="10"
                 max="10000"
                 value={capacity}
-                onChange={(e) => setCapacity(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCapacity(val === "" ? ("" as any) : Number(val));
+                }}
                 className="w-full px-4 py-2.5 text-xs font-bold rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:bg-white focus:border-slate-900 transition-all"
                 required
               />

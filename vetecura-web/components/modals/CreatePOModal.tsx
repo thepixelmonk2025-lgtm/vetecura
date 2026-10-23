@@ -27,7 +27,9 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({
   initialItems,
 }) => {
   const [selectedSupplier, setSelectedSupplier] = useState(suppliers.length > 0 ? suppliers[0].id : "");
-  const [items, setItems] = useState([{ product_id: products.length > 0 ? products[0].id : "", ordered_qty: 100 }]);
+  const [items, setItems] = useState<Array<{ product_id: string; ordered_qty: number | string }>>([
+    { product_id: products.length > 0 ? products[0].id : "", ordered_qty: 100 },
+  ]);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -37,7 +39,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({
         setItems([{ product_id: products.length > 0 ? products[0].id : "", ordered_qty: 100 }]);
       }
     }
-  }, [isOpen, initialItems, products]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -49,7 +51,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const handleItemChange = (index: number, field: keyof typeof items[0], value: any) => {
+  const handleItemChange = (index: number, field: string, value: any) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);
@@ -64,7 +66,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({
       return;
     }
 
-    const hasInvalidItem = items.some(item => !item.product_id || item.ordered_qty <= 0);
+    const hasInvalidItem = items.some(item => !item.product_id || Number(item.ordered_qty) <= 0);
     if (hasInvalidItem) {
       alert("Please select a product and valid quantity for all items.");
       return;
@@ -72,7 +74,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({
 
     const payload = items.map(item => ({
       product_id: item.product_id || (products.length > 0 ? products[0].id : "1"),
-      ordered_qty: item.ordered_qty,
+      ordered_qty: Number(item.ordered_qty) || 1,
       unit_price: 250 // Mock price
     }));
 
@@ -171,7 +173,10 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({
                         min="1"
                         required
                         value={item.ordered_qty}
-                        onChange={(e) => handleItemChange(index, "ordered_qty", Number(e.target.value))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          handleItemChange(index, "ordered_qty", val === "" ? "" : Number(val));
+                        }}
                         className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white outline-none focus:border-slate-900 font-semibold text-slate-900"
                       />
                     </div>

@@ -70,7 +70,8 @@ export const CreateWriteoffModal: React.FC<CreateWriteoffModalProps> = ({
       alert("Please upload a photo or paste an image link. A photo is required to protect against theft.");
       return;
     }
-    onSubmit(reason, photoPreview || photoUrl, selectedProductId, qty);
+    const effectiveQty = Number(qty) > 0 ? Number(qty) : 1;
+    onSubmit(reason, photoPreview || photoUrl, selectedProductId, effectiveQty);
   };
 
   const clearPhoto = () => {
@@ -151,7 +152,10 @@ export const CreateWriteoffModal: React.FC<CreateWriteoffModalProps> = ({
                     min="1"
                     max="9999"
                     value={qty}
-                    onChange={(e) => setQty(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setQty(val === "" ? ("" as any) : Number(val));
+                    }}
                     className="w-full px-3 py-2 text-xs font-black rounded-xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:border-red-400 transition-all text-center"
                   />
                 </div>
