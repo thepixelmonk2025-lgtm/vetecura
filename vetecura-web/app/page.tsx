@@ -349,13 +349,20 @@ export default function WebAdminDashboard() {
       }
 
       const saved = typeof window !== "undefined" ? sessionStorage.getItem("vetecura_token") : null;
-      if (saved) {
+      if (saved && !saved.startsWith("mock-token-")) {
         setAuthToken(saved);
         loadCoreData(saved);
         
-        // Restore role if saved (for demo purposes)
+        // Restore role if saved
         const savedRole = typeof window !== "undefined" ? sessionStorage.getItem("vetecura_role") : null;
         if (savedRole) setUserRole(savedRole as UserRole);
+      } else {
+        // Clear any old mock tokens so user must log in properly
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("vetecura_token");
+          sessionStorage.removeItem("vetecura_role");
+        }
+        setAuthToken(null);
       }
     };
     initAuth();
@@ -385,7 +392,6 @@ export default function WebAdminDashboard() {
             setUserRole(meData.role as UserRole);
             sessionStorage.setItem("vetecura_role", meData.role);
           } else {
-            // Fallback just in case
             let roleToSet: UserRole = "owner";
             if (email.includes("manager")) roleToSet = "warehouse_manager";
             if (email.includes("staff")) roleToSet = "warehouse_staff";
@@ -400,25 +406,16 @@ export default function WebAdminDashboard() {
         }
         
         loadCoreData(data.access_token);
+      } else if (res.status === 401 || res.status === 400) {
+        alert("❌ चुकीचा Username किंवा Password! (Invalid email or password)");
+      } else if (res.status === 502 || res.status === 503) {
+        alert("⚠️ Backend Server Unavailable (502 Bad Gateway)!\nसर्व्हर सध्या रिस्टार्ट होत आहे किंवा बॅकएंड कंटेनर डाऊन आहे. कृपया Docker तपासणे.");
       } else {
-        alert("Invalid email or password!");
+        alert(`⚠️ लॉगिन अयशस्वी झाले (Server Status: ${res.status}).`);
       }
     } catch (err) {
-      console.debug("Backend unreachable. Offline / Dev session mode active");
-      // Fallback local dev login
-      const fakeToken = "mock-token-" + Date.now();
-      setAuthToken(fakeToken);
-      sessionStorage.setItem("vetecura_token", fakeToken);
-      
-      let roleToSet: UserRole = "owner";
-      if (email.includes("manager")) roleToSet = "warehouse_manager";
-      if (email.includes("staff")) roleToSet = "warehouse_staff";
-      if (email.includes("purchase")) roleToSet = "purchase_team";
-      
-      setUserRole(roleToSet);
-      sessionStorage.setItem("vetecura_role", roleToSet);
-      
-      loadCoreData(fakeToken);
+      console.error("Login network connection failed:", err);
+      alert("❌ इंटरनेट डिस्कनेक्ट झाले आहे किंवा सर्व्हरशी संपर्क होत नाही!\nलॉगिन केल्याशिवाय डॅशबोर्ड उघडणार नाही.");
     }
   };
 
