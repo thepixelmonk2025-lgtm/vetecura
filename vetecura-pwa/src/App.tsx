@@ -616,12 +616,12 @@ export default function App() {
           {/* Left: Admin Portal Back & Session Details */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <a
-              href="http://localhost:3000"
+              href="/"
               className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-2xs"
-              title="Return to Web Admin"
+              title="Return to Main Dashboard"
             >
               <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
-              <span className="text-[11px] sm:text-xs">Admin Portal</span>
+              <span className="text-[11px] sm:text-xs">Dashboard</span>
             </a>
 
             <div className="border-l border-slate-200 dark:border-slate-800 pl-2 sm:pl-3 min-w-0">
