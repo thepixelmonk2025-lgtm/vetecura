@@ -231,33 +231,10 @@ export default function WebAdminDashboard() {
           };
         });
 
-        // Merge backend POs with local POs so newly created orders are never lost
-        let mergedPOs = backendPOs;
+        // Backend PostgreSQL is the authoritative single source of truth
+        setPoList(backendPOs);
         if (typeof window !== "undefined") {
-          try {
-            const localSaved = localStorage.getItem("vetecura_pos");
-            if (localSaved) {
-              const localList: PurchaseOrderRow[] = JSON.parse(localSaved);
-              if (Array.isArray(localList)) {
-                const backendPONumbers = new Set(backendPOs.map(p => p.po_number));
-                const backendPOIds = new Set(backendPOs.map(p => p.id));
-                const pendingLocal = localList.filter(p => !backendPONumbers.has(p.po_number) && (!p.id || !backendPOIds.has(p.id)));
-                mergedPOs = [...pendingLocal, ...backendPOs];
-              }
-            }
-          } catch (e) {}
-          localStorage.setItem("vetecura_pos", JSON.stringify(mergedPOs));
-        }
-        setPoList(mergedPOs);
-      } else {
-        if (typeof window !== "undefined") {
-          try {
-            const localSaved = localStorage.getItem("vetecura_pos");
-            if (localSaved) {
-              const localList = JSON.parse(localSaved);
-              if (Array.isArray(localList) && localList.length > 0) setPoList(localList);
-            }
-          } catch (e) {}
+          localStorage.setItem("vetecura_pos", JSON.stringify(backendPOs));
         }
       }
 
@@ -280,32 +257,10 @@ export default function WebAdminDashboard() {
           };
         });
 
-        let mergedSOs = backendSOs;
+        // Authoritative backend sync
+        setSalesOrderList(backendSOs);
         if (typeof window !== "undefined") {
-          try {
-            const localSaved = localStorage.getItem("vetecura_sos");
-            if (localSaved) {
-              const localList: SalesOrderRow[] = JSON.parse(localSaved);
-              if (Array.isArray(localList)) {
-                const backendRefs = new Set(backendSOs.map((s: any) => s.order_reference));
-                const backendIds = new Set(backendSOs.map((s: any) => s.id));
-                const pendingLocal = localList.filter(s => !backendRefs.has(s.order_reference) && (!s.id || !backendIds.has(s.id)));
-                mergedSOs = [...pendingLocal, ...backendSOs];
-              }
-            }
-          } catch (e) {}
-          localStorage.setItem("vetecura_sos", JSON.stringify(mergedSOs));
-        }
-        setSalesOrderList(mergedSOs);
-      } else {
-        if (typeof window !== "undefined") {
-          try {
-            const localSaved = localStorage.getItem("vetecura_sos");
-            if (localSaved) {
-              const localList = JSON.parse(localSaved);
-              if (Array.isArray(localList) && localList.length > 0) setSalesOrderList(localList);
-            }
-          } catch (e) {}
+          localStorage.setItem("vetecura_sos", JSON.stringify(backendSOs));
         }
       }
 
@@ -474,156 +429,137 @@ export default function WebAdminDashboard() {
 
   // Actions Handlers
   const handleCreatePO = async (supplierId: string, items: any[]) => {
-    const now = new Date();
-    const formattedTime = now.toLocaleString([], {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-
-    const supplierObj = suppliers.find((s) => s.id === supplierId) || suppliers[0];
-    const generatedPoNumber = `PO-${now.getFullYear()}-${String(poList.length + 42).padStart(4, "0")}`;
-    const totalUnits = items.reduce((s, i) => s + (Number(i.ordered_qty) || 0), 0);
-
-    let activePO: PurchaseOrderRow = {
-      id: String(Date.now()),
-      po_number: generatedPoNumber,
-      supplier: supplierObj ? supplierObj.name : "PharmaCare Laboratories",
-      expected_units: totalUnits,
-      scanned_units: 0,
-      status: "Draft",
-      created_at: formattedTime,
-      items: items,
-    };
-
-    // Immediate local save so UI updates immediately and refresh will never lose it
-    const currentList = [activePO, ...poList.filter(p => p.po_number !== activePO.po_number)];
-    setPoList(currentList);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vetecura_pos", JSON.stringify(currentList));
+    if (!authToken || authToken.startsWith("mock-token-")) {
+      alert("⚠️ तुमचे लॉगिन सत्र वैध नाही किंवा मुदत संपली आहे. कृपया पुन्हा लॉगिन करा.");
+      return;
     }
 
-    // Instantly notify Telegram Warehouse Operations group (Stock In)
-    const itemListString = items.map((item) => {
-      const p = products.find(p => p.id === item.product_id);
-      return `- ${p ? p.name : item.product_id}: ${item.ordered_qty} units`;
-    }).join("\n");
-
-    const poAlert = [
-      `📋 <b>[NEW PURCHASE ORDER CREATED]</b>`,
-      `<b>PO Number:</b> <code>${activePO.po_number}</code>`,
-      `<b>Supplier:</b> ${activePO.supplier}`,
-      `<b>Total Items:</b> ${totalUnits} Units (${items.length} line items)`,
-      `<b>Items Breakdown:</b>\n${itemListString}`,
-      `<b>Status:</b> Draft - Awaiting Gate Arrival & Barcode Scan`,
-      `<b>Created At:</b> ${formattedTime}`,
-      `<i>⚡ Dispatched via Vetecura IMS</i>`,
-    ].join("\n");
-    sendTelegramNotification("stock_in", poAlert);
-
     try {
-      if (authToken && !authToken.startsWith("mock-token-")) {
-        const res = await fetch(`${API_BASE_URL}/purchase-orders`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-          body: JSON.stringify({ supplier_id: supplierId, items }),
-        });
-        if (res.ok) {
-          const backendData: POOut = await res.json();
-          activePO = {
-            id: backendData.id,
-            po_number: backendData.po_number,
-            supplier: supplierObj ? supplierObj.name : "PharmaCare Laboratories",
-            expected_units: backendData.items?.reduce((s, i) => s + i.ordered_qty, 0) || totalUnits,
-            scanned_units: 0,
-            status: "Draft",
-            created_at: formattedTime,
-            items: backendData.items || items,
-          };
-          const syncedList = [activePO, ...poList.filter(p => p.id !== activePO.id && p.po_number !== activePO.po_number && p.po_number !== generatedPoNumber)];
-          setPoList(syncedList);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("vetecura_pos", JSON.stringify(syncedList));
-          }
-          await loadCoreData(authToken);
-        } else {
-          console.warn("Backend PO creation non-200, kept in local storage");
-        }
+      const res = await fetch(`${API_BASE_URL}/purchase-orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ supplier_id: supplierId, items }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData.detail 
+          ? (typeof errData.detail === "string" ? errData.detail : JSON.stringify(errData.detail))
+          : `Server returned error (${res.status})`;
+        throw new Error(msg);
       }
+
+      const backendData: POOut = await res.json();
+      const supObj = suppliers.find((s) => s.id === backendData.supplier_id) || suppliers[0];
+      const totalUnits = backendData.items?.reduce((s, i) => s + i.ordered_qty, 0) || items.reduce((s, i) => s + (Number(i.ordered_qty) || 0), 0);
+      const formattedTime = new Date().toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+
+      const newRow: PurchaseOrderRow = {
+        id: backendData.id,
+        po_number: backendData.po_number,
+        supplier: supObj ? supObj.name : "PharmaCare Laboratories",
+        expected_units: totalUnits,
+        scanned_units: 0,
+        status: "Draft",
+        created_at: formattedTime,
+        items: backendData.items || items,
+      };
+
+      setPoList((prev) => [newRow, ...prev.filter(p => p.id !== newRow.id)]);
       setIsCreatePOOpen(false);
-      alert(`✅ Purchase Order ${activePO.po_number} (${activePO.supplier}) created successfully!\n\n📲 Telegram notification sent to Operations group.`);
-    } catch (e) {
-      setIsCreatePOOpen(false);
-      alert(`✅ Purchase Order ${activePO.po_number} created!\n\n📲 Telegram notification sent to Operations group.`);
+
+      // Instantly notify Telegram Warehouse Operations group (Stock In)
+      const itemListString = items.map((item) => {
+        const p = products.find(p => p.id === item.product_id);
+        return `- ${p ? p.name : item.product_id}: ${item.ordered_qty} units`;
+      }).join("\n");
+
+      const poAlert = [
+        `📋 <b>[NEW PURCHASE ORDER CREATED]</b>`,
+        `<b>PO Number:</b> <code>${backendData.po_number}</code>`,
+        `<b>Supplier:</b> ${newRow.supplier}`,
+        `<b>Total Items:</b> ${totalUnits} Units (${items.length} line items)`,
+        `<b>Items Breakdown:</b>\n${itemListString}`,
+        `<b>Status:</b> Draft - Awaiting Gate Arrival & Barcode Scan`,
+        `<b>Created At:</b> ${formattedTime}`,
+        `<i>⚡ Dispatched via Vetecura IMS</i>`,
+      ].join("\n");
+      sendTelegramNotification("stock_in", poAlert);
+
+      await loadCoreData(authToken);
+      alert(`✅ Purchase Order ${backendData.po_number} (${newRow.supplier}) PostgreSQL डेटाबेसमध्ये कायमस्वरूपी सेव्ह झाली!\n\n📲 Telegram notification पाठवण्यात आली.`);
+    } catch (e: any) {
+      console.error("Failed to create PO:", e);
+      alert(`❌ Purchase Order डेटाबेसमध्ये तयार करता आली नाही:\n${e.message || "सर्व्हर एरर"}`);
     }
   };
 
   const handleCreateSO = async (customerName: string, items: any[]) => {
-    const now = new Date();
-    const formattedTime = now.toLocaleString([], {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-
-    const totalCount = items.reduce((s, i) => s + (Number(i.ordered_qty) || 0), 0);
-    const newSO: SalesOrderRow = {
-      id: String(Date.now()),
-      order_reference: `SO-${Math.floor(10000 + Math.random() * 90000)}`,
-      customer_name: customerName,
-      expected_count: totalCount,
-      scanned_count: 0,
-      status: "In Progress",
-      created_at: formattedTime,
-      items: items,
-    };
-
-    // Immediately persist in local storage
-    const updatedSOs = [newSO, ...salesOrderList.filter(s => s.order_reference !== newSO.order_reference)];
-    setSalesOrderList(updatedSOs);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vetecura_sos", JSON.stringify(updatedSOs));
+    if (!authToken || authToken.startsWith("mock-token-")) {
+      alert("⚠️ तुमचे लॉगिन सत्र वैध नाही. कृपया पुन्हा लॉगिन करा.");
+      return;
     }
 
-    // Telegram Notification for Outbound / Stock Out
-    const itemListString = items.map((item) => {
-      const p = products.find(p => p.id === item.product_id);
-      return `- ${p ? p.name : item.product_id}: ${item.ordered_qty} units`;
-    }).join("\n");
-
-    const soAlert = [
-      `📦 <b>[NEW SALES ORDER CREATED]</b>`,
-      `<b>Order Ref:</b> <code>${newSO.order_reference}</code>`,
-      `<b>Customer:</b> ${newSO.customer_name}`,
-      `<b>Quantity:</b> ${totalCount} Units (${items.length} line items)`,
-      `<b>Items Breakdown:</b>\n${itemListString}`,
-      `<b>Status:</b> Picking & Staging for Dispatch`,
-      `<b>Created At:</b> ${formattedTime}`,
-      `<i>⚡ Dispatched via Vetecura IMS</i>`,
-    ].join("\n");
-    sendTelegramNotification("stock_out", soAlert);
-
     try {
-      if (authToken && !authToken.startsWith("mock-token-")) {
-        const res = await fetch(`${API_BASE_URL}/dispatch/sales-orders`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-          body: JSON.stringify({ 
-            order_reference: newSO.order_reference,
-            customer_name: customerName, 
-            items: items.map(it => ({
-              product_id: it.product_id || products[0]?.id,
-              ordered_qty: Number(it.ordered_qty)
-            }))
-          }),
-        });
-        if (res.ok) {
-          await loadCoreData(authToken);
-        }
+      const orderRef = `SO-${Math.floor(10000 + Math.random() * 90000)}`;
+      const res = await fetch(`${API_BASE_URL}/dispatch/sales-orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ 
+          order_reference: orderRef,
+          customer_name: customerName, 
+          items: items.map(it => ({
+            product_id: it.product_id || products[0]?.id,
+            ordered_qty: Number(it.ordered_qty)
+          }))
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Server rejected Sales Order creation");
       }
+
+      const backendSO = await res.json();
+      const totalCount = items.reduce((s, i) => s + (Number(i.ordered_qty) || 0), 0);
+      const formattedTime = new Date().toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+
+      const newSO: SalesOrderRow = {
+        id: backendSO.id,
+        order_reference: backendSO.order_reference,
+        customer_name: backendSO.customer_name || customerName,
+        expected_count: totalCount,
+        scanned_count: 0,
+        status: "In Progress",
+        created_at: formattedTime,
+        items: items,
+      };
+
+      setSalesOrderList((prev) => [newSO, ...prev.filter(s => s.id !== newSO.id)]);
       setIsCreateSOOpen(false);
-      alert(`✅ Customer Sales Order ${newSO.order_reference} (${newSO.customer_name}) saved successfully!\n\n📲 Telegram notification sent to Operations group.`);
-    } catch (e) {
-      setIsCreateSOOpen(false);
-      alert(`✅ Sales Order ${newSO.order_reference} created!\n\n📲 Telegram notification sent.`);
+
+      // Telegram Notification for Outbound / Stock Out
+      const itemListString = items.map((item) => {
+        const p = products.find(p => p.id === item.product_id);
+        return `- ${p ? p.name : item.product_id}: ${item.ordered_qty} units`;
+      }).join("\n");
+
+      const soAlert = [
+        `📦 <b>[NEW SALES ORDER CREATED]</b>`,
+        `<b>Order Ref:</b> <code>${backendSO.order_reference}</code>`,
+        `<b>Customer:</b> ${backendSO.customer_name}`,
+        `<b>Quantity:</b> ${totalCount} Units (${items.length} line items)`,
+        `<b>Items Breakdown:</b>\n${itemListString}`,
+        `<b>Status:</b> Picking & Staging for Dispatch`,
+        `<b>Created At:</b> ${formattedTime}`,
+        `<i>⚡ Dispatched via Vetecura IMS</i>`,
+      ].join("\n");
+      sendTelegramNotification("stock_out", soAlert);
+
+      await loadCoreData(authToken);
+      alert(`✅ Customer Sales Order ${backendSO.order_reference} (${backendSO.customer_name}) डेटाबेसमध्ये सेव्ह झाली!\n\n📲 Telegram notification पाठवण्यात आली.`);
+    } catch (e: any) {
+      alert(`❌ Sales Order तयार करणे अयशस्वी: ${e.message || "सर्व्हर एरर"}`);
     }
   };
 
