@@ -362,15 +362,15 @@ export default function WebAdminDashboard() {
         
         loadCoreData(data.access_token);
       } else if (res.status === 401 || res.status === 400) {
-        alert("❌ चुकीचा Username किंवा Password! (Invalid email or password)");
+        alert("❌ Invalid email or password!");
       } else if (res.status === 502 || res.status === 503) {
-        alert("⚠️ Backend Server Unavailable (502 Bad Gateway)!\nसर्व्हर सध्या रिस्टार्ट होत आहे किंवा बॅकएंड कंटेनर डाऊन आहे. कृपया Docker तपासणे.");
+        alert("⚠️ Backend Server Unavailable (502 Bad Gateway)!\nThe server is restarting or backend container is offline. Please check Docker status.");
       } else {
-        alert(`⚠️ लॉगिन अयशस्वी झाले (Server Status: ${res.status}).`);
+        alert(`⚠️ Login failed (Server Status: ${res.status}).`);
       }
     } catch (err) {
       console.error("Login network connection failed:", err);
-      alert("❌ इंटरनेट डिस्कनेक्ट झाले आहे किंवा सर्व्हरशी संपर्क होत नाही!\nलॉगिन केल्याशिवाय डॅशबोर्ड उघडणार नाही.");
+      alert("❌ Network connection failed or unable to reach server!\nPlease verify your internet connection.");
     }
   };
 
@@ -430,7 +430,7 @@ export default function WebAdminDashboard() {
   // Actions Handlers
   const handleCreatePO = async (supplierId: string, items: any[]) => {
     if (!authToken || authToken.startsWith("mock-token-")) {
-      alert("⚠️ तुमचे लॉगिन सत्र वैध नाही किंवा मुदत संपली आहे. कृपया पुन्हा लॉगिन करा.");
+      alert("⚠️ Your login session is invalid or expired. Please log in again.");
       return;
     }
 
@@ -487,16 +487,16 @@ export default function WebAdminDashboard() {
       sendTelegramNotification("stock_in", poAlert);
 
       await loadCoreData(authToken);
-      alert(`✅ Purchase Order ${backendData.po_number} (${newRow.supplier}) PostgreSQL डेटाबेसमध्ये कायमस्वरूपी सेव्ह झाली!\n\n📲 Telegram notification पाठवण्यात आली.`);
+      alert(`✅ Purchase Order ${backendData.po_number} (${newRow.supplier}) successfully saved to database!\n\n📲 Telegram notification dispatched.`);
     } catch (e: any) {
       console.error("Failed to create PO:", e);
-      alert(`❌ Purchase Order डेटाबेसमध्ये तयार करता आली नाही:\n${e.message || "सर्व्हर एरर"}`);
+      alert(`❌ Failed to create Purchase Order in database:\n${e.message || "Server Error"}`);
     }
   };
 
   const handleCreateSO = async (customerName: string, items: any[]) => {
     if (!authToken || authToken.startsWith("mock-token-")) {
-      alert("⚠️ तुमचे लॉगिन सत्र वैध नाही. कृपया पुन्हा लॉगिन करा.");
+      alert("⚠️ Your login session is invalid. Please log in again.");
       return;
     }
 
@@ -557,9 +557,9 @@ export default function WebAdminDashboard() {
       sendTelegramNotification("stock_out", soAlert);
 
       await loadCoreData(authToken);
-      alert(`✅ Customer Sales Order ${backendSO.order_reference} (${backendSO.customer_name}) डेटाबेसमध्ये सेव्ह झाली!\n\n📲 Telegram notification पाठवण्यात आली.`);
+      alert(`✅ Customer Sales Order ${backendSO.order_reference} (${backendSO.customer_name}) successfully saved to database!\n\n📲 Telegram notification dispatched.`);
     } catch (e: any) {
-      alert(`❌ Sales Order तयार करणे अयशस्वी: ${e.message || "सर्व्हर एरर"}`);
+      alert(`❌ Failed to create Sales Order:\n${e.message || "Server Error"}`);
     }
   };
 

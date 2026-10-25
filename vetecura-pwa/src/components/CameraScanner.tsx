@@ -45,10 +45,10 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
         if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           if (typeof window !== 'undefined' && !window.isSecureContext) {
             setErrorMsg(
-              'ब्राऊझर सुरक्षेमुळे साध्या HTTP वर कॅमेरा ब्लॉक असतो. कॅमेरा चालवण्यासाठी HTTPS (SSL) आवश्यक आहे, किंवा चाचणीसाठी Chrome मध्ये chrome://flags सक्षम करा. (किंवा USB/Bluetooth बारकोड गन वापरा).'
+              'Camera access is blocked over plain HTTP due to browser security. HTTPS (SSL) is required, or enable chrome://flags/#unsafely-treat-insecure-origin-as-secure for testing. (Alternatively, use a USB/Bluetooth barcode scanner gun).'
             );
           } else {
-            setErrorMsg('कॅमेरा डिव्हाइस सापडले नाही किंवा कॅमेरा परवाणगी नाकारली आहे.');
+            setErrorMsg('Camera device not found or camera permission was denied.');
           }
           return;
         }

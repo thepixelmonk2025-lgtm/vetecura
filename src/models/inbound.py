@@ -1,6 +1,6 @@
 import uuid
 import enum
-from sqlalchemy import Column, String, Boolean, Integer, DateTime, Text, ForeignKey
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, Text, ForeignKey, Numeric
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -56,7 +56,7 @@ class PurchaseOrderItem(Base):
     purchase_order_id = Column(UUID(as_uuid=True), ForeignKey("purchase_orders.id", ondelete="CASCADE"), nullable=False)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     ordered_qty = Column(Integer, nullable=False)
-    unit_price = Column(String(20))  # Numeric stored as string for flexibility
+    unit_price = Column(Numeric(10, 2), nullable=True)
 
     purchase_order = relationship("PurchaseOrder", back_populates="items")
 

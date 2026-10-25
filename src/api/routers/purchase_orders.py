@@ -137,11 +137,17 @@ async def create_purchase_order(
         total_qty = 0
         for item in body.items:
             total_qty += item.ordered_qty
+            price = None
+            if item.unit_price is not None:
+                try:
+                    price = float(item.unit_price)
+                except (ValueError, TypeError):
+                    price = None
             db.add(PurchaseOrderItem(
                 purchase_order_id=po.id,
                 product_id=item.product_id,
                 ordered_qty=item.ordered_qty,
-                unit_price=str(item.unit_price) if item.unit_price else None,
+                unit_price=price,
             ))
 
         # Fetch supplier name for rich alert
