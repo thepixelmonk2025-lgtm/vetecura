@@ -78,14 +78,16 @@ def _next_po_number() -> str:
 
 async def _write_audit(db, user_id, action, entity_id, payload):
     last = await db.execute(
-        select(AuditLog).order_by(AuditLog.id.desc()).limit(1).with_for_update()
+        select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(1).with_for_update()
     )
     last_log = last.scalar_one_or_none()
     prev_hash = last_log.current_hash if last_log else "0" * 64
     uid = user_id if isinstance(user_id, UUID) else UUID(str(user_id))
+    now_ts = datetime.now(timezone.utc)
 
     log = AuditLog(
         user_id=uid,
+        timestamp=now_ts,
         action=action,
         entity_type="purchase_orders",
         entity_id=str(entity_id),
@@ -122,55 +124,70 @@ async def create_purchase_order(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role([RoleEnum.purchase_team, RoleEnum.owner])),
 ):
-    po = PurchaseOrder(
-        po_number=_next_po_number(),
-        supplier_id=body.supplier_id,
-        status=POStatusEnum.draft,
-        created_by=current_user.id,
-    )
-    db.add(po)
-    await db.flush()
+    try:
+        po = PurchaseOrder(
+            po_number=_next_po_number(),
+            supplier_id=body.supplier_id,
+            status=POStatusEnum.draft,
+            created_by=current_user.id,
+        )
+        db.add(po)
+        await db.flush()
 
-    total_qty = 0
-    for item in body.items:
-        total_qty += item.ordered_qty
-        db.add(PurchaseOrderItem(
-            purchase_order_id=po.id,
-            product_id=item.product_id,
-            ordered_qty=item.ordered_qty,
-            unit_price=str(item.unit_price) if item.unit_price else None,
-        ))
+        total_qty = 0
+        for item in body.items:
+            total_qty += item.ordered_qty
+            db.add(PurchaseOrderItem(
+                purchase_order_id=po.id,
+                product_id=item.product_id,
+                ordered_qty=item.ordered_qty,
+                unit_price=str(item.unit_price) if item.unit_price else None,
+            ))
 
-    # Fetch supplier name for rich alert
-    sup_res = await db.execute(select(Supplier).where(Supplier.id == body.supplier_id))
-    supplier = sup_res.scalar_one_or_none()
-    supplier_name = supplier.name if supplier else "Unknown Supplier"
+        # Fetch supplier name for rich alert
+        sup_res = await db.execute(select(Supplier).where(Supplier.id == body.supplier_id))
+        supplier = sup_res.scalar_one_or_none()
+        supplier_name = supplier.name if supplier else "Unknown Supplier"
 
-    await _write_audit(db, current_user.id, "po_drafted", po.id, {"po_number": po.po_number})
+        await _write_audit(db, current_user.id, "po_drafted", po.id, {"po_number": po.po_number})
 
-    # Enqueue Telegram notification to Operations Group (Stock In)
-    alert_msg = (
-        f"📋 <b>[NEW PURCHASE ORDER CREATED]</b>\n"
-        f"<b>PO Number:</b> <code>{po.po_number}</code>\n"
-        f"<b>Supplier:</b> {supplier_name}\n"
-        f"<b>Total Units:</b> {total_qty} units ({len(body.items)} line items)\n"
-        f"<b>Status:</b> Draft\n"
-        f"<b>Created By:</b> {current_user.email}\n"
-        f"<i>Ready for manager approval and inbound barcode scanning.</i>"
-    )
-    await NotificationService.enqueue(
-        db,
-        topic="stock_in",
-        message=alert_msg,
-        entity_type="purchase_orders",
-        entity_id=po.id,
-    )
+        # Enqueue Telegram notification to Operations Group (Stock In)
+        alert_msg = (
+            f"📋 <b>[NEW PURCHASE ORDER CREATED]</b>\n"
+            f"<b>PO Number:</b> <code>{po.po_number}</code>\n"
+            f"<b>Supplier:</b> {supplier_name}\n"
+            f"<b>Total Units:</b> {total_qty} units ({len(body.items)} line items)\n"
+            f"<b>Status:</b> Draft\n"
+            f"<b>Created By:</b> {current_user.email}\n"
+            f"<i>Ready for manager approval and inbound barcode scanning.</i>"
+        )
+        try:
+            await NotificationService.enqueue(
+                db,
+                topic="stock_in",
+                message=alert_msg,
+                entity_type="purchase_orders",
+                entity_id=po.id,
+            )
+        except Exception as n_err:
+            print(f"Warning: Failed to enqueue notification: {n_err}")
 
-    await db.commit()
-    res = await db.execute(
-        select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == po.id)
-    )
-    return res.scalar_one()
+        await db.commit()
+        res = await db.execute(
+            select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == po.id)
+        )
+        return res.scalar_one()
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as exc:
+        await db.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error while creating PO: {str(exc)}",
+        )
 
 
 @router.post("/{po_id}/submit", response_model=POOut)
