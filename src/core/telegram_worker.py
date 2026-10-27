@@ -64,7 +64,8 @@ class TelegramAlertWorker:
                 url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
                 payload = {
                     "chat_id": target_chat_id,
-                    "text": f"[{alert.topic.upper()}]\n{alert.message}"
+                    "text": f"<b>[{alert.topic.upper()}]</b>\n\n{alert.message}",
+                    "parse_mode": "HTML",
                 }
                 
                 # Apply Topic mapping if configured
@@ -78,6 +79,24 @@ class TelegramAlertWorker:
                     
                     alert.status = "sent"
                     alert.sent_at = datetime.now(timezone.utc)
+                except httpx.HTTPStatusError as e:
+                    # Fallback: if Telegram rejects due to HTML entity formatting, strip tags and send as plain text
+                    if e.response.status_code == 400:
+                        import re
+                        plain_text = re.sub(r'<[^>]+>', '', payload["text"])
+                        payload["text"] = plain_text
+                        payload.pop("parse_mode", None)
+                        try:
+                            fallback_res = await client.post(url, json=payload, timeout=10.0)
+                            fallback_res.raise_for_status()
+                            alert.status = "sent"
+                            alert.sent_at = datetime.now(timezone.utc)
+                        except Exception as fb_err:
+                            alert.status = "failed"
+                            alert.message += f"\n[Error: {str(fb_err)}]"
+                    else:
+                        alert.status = "failed"
+                        alert.message += f"\n[Error: {str(e)}]"
                 except Exception as e:
                     print(f"Failed to send Telegram message: {e}")
                     alert.status = "failed"

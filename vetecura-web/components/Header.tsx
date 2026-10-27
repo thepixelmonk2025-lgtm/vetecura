@@ -178,7 +178,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <p className="text-center py-6 text-xs text-slate-400">No alerts in queue.</p>
                 ) : (
                   telegramLogs.map((alert, idx) => (
-                    <div key={idx} className="p-3 bg-slate-50 rounded-2xl border border-slate-200/70 text-xs space-y-1">
+                    <div key={idx} className="p-3 bg-slate-50 rounded-2xl border border-slate-200/70 text-xs space-y-1.5">
                       <div className="flex justify-between items-center">
                         <span className="font-bold text-slate-900 uppercase text-[10px] tracking-wider">
                           [{alert.topic}]
@@ -187,9 +187,10 @@ export const Header: React.FC<HeaderProps> = ({
                           {alert.time || "Live"}
                         </span>
                       </div>
-                      <p className="text-slate-700 font-medium text-[11px] leading-relaxed">
-                        {alert.message}
-                      </p>
+                      <div
+                        className="text-slate-700 font-medium text-[11px] leading-relaxed whitespace-pre-line [&_b]:font-bold [&_b]:text-slate-900 [&_code]:bg-slate-200/80 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_code]:font-mono [&_code]:text-[10px] [&_code]:text-slate-900 [&_i]:text-slate-500 [&_i]:italic"
+                        dangerouslySetInnerHTML={{ __html: (alert.message || "").replace(/\n/g, '<br/>') }}
+                      />
                     </div>
                   ))
                 )}
