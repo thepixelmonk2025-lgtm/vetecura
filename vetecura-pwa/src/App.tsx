@@ -570,10 +570,10 @@ export default function App() {
 
       if (soundEnabled) playSuccessBeep();
       alert(`🎉 Session Successfully Finalized!\n\nReference: ${poNumber}\nScanned: ${scannedCount} / ${totalExpected} units verified.\n\nReturning to Web Admin Portal...`);
-      window.location.href = 'http://localhost:3000';
+      window.location.href = '/';
     } catch (e) {
       alert(`🎉 Session finalized! Returning to Web Admin.`);
-      window.location.href = 'http://localhost:3000';
+      window.location.href = '/';
     }
   };
 
@@ -588,7 +588,7 @@ export default function App() {
       }));
     }
     alert(`⏸️ Session paused at ${scannedCount} units. Returning to Web Admin.`);
-    window.location.href = 'http://localhost:3000';
+    window.location.href = '/';
   };
 
   // Copy Barcode to Clipboard
