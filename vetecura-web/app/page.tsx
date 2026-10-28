@@ -303,25 +303,41 @@ export default function WebAdminDashboard() {
         } catch (e) {}
       }
 
-      const saved = typeof window !== "undefined" ? sessionStorage.getItem("vetecura_token") : null;
+      const saved = typeof window !== "undefined" ? (sessionStorage.getItem("vetecura_token") || localStorage.getItem("vetecura_token")) : null;
       if (saved && !saved.startsWith("mock-token-")) {
         setAuthToken(saved);
         loadCoreData(saved);
         
         // Restore role if saved
-        const savedRole = typeof window !== "undefined" ? sessionStorage.getItem("vetecura_role") : null;
+        const savedRole = typeof window !== "undefined" ? (sessionStorage.getItem("vetecura_role") || localStorage.getItem("vetecura_role")) : null;
         if (savedRole) setUserRole(savedRole as UserRole);
       } else {
         // Clear any old mock tokens so user must log in properly
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("vetecura_token");
           sessionStorage.removeItem("vetecura_role");
+          localStorage.removeItem("vetecura_token");
+          localStorage.removeItem("vetecura_role");
         }
         setAuthToken(null);
       }
     };
     initAuth();
   }, [loadCoreData]);
+
+  // Listen for message from PWA scanner tab when session is completed
+  useEffect(() => {
+    const handleScannerMessage = (event: MessageEvent) => {
+      if (event.data?.type === "VETECURA_SESSION_COMPLETE") {
+        const token = authToken || (typeof window !== "undefined" ? localStorage.getItem("vetecura_token") || sessionStorage.getItem("vetecura_token") : null);
+        if (token) {
+          loadCoreData(token);
+        }
+      }
+    };
+    window.addEventListener("message", handleScannerMessage);
+    return () => window.removeEventListener("message", handleScannerMessage);
+  }, [authToken, loadCoreData]);
 
   const handleLogin = async (email: string, pass: string) => {
     try {
@@ -337,6 +353,7 @@ export default function WebAdminDashboard() {
         const data = await res.json();
         setAuthToken(data.access_token);
         sessionStorage.setItem("vetecura_token", data.access_token);
+        localStorage.setItem("vetecura_token", data.access_token);
         
         try {
           const meRes = await fetch(`${API_BASE_URL}/auth/me`, {
@@ -346,6 +363,7 @@ export default function WebAdminDashboard() {
             const meData = await meRes.json();
             setUserRole(meData.role as UserRole);
             sessionStorage.setItem("vetecura_role", meData.role);
+            localStorage.setItem("vetecura_role", meData.role);
           } else {
             let roleToSet: UserRole = "owner";
             if (email.includes("manager")) roleToSet = "warehouse_manager";
@@ -353,11 +371,13 @@ export default function WebAdminDashboard() {
             if (email.includes("purchase")) roleToSet = "purchase_team";
             setUserRole(roleToSet);
             sessionStorage.setItem("vetecura_role", roleToSet);
+            localStorage.setItem("vetecura_role", roleToSet);
           }
         } catch (err) {
           let roleToSet: UserRole = "owner";
           setUserRole(roleToSet);
           sessionStorage.setItem("vetecura_role", roleToSet);
+          localStorage.setItem("vetecura_role", roleToSet);
         }
         
         loadCoreData(data.access_token);
@@ -1318,6 +1338,7 @@ export default function WebAdminDashboard() {
           {activeTab === "inbound" && (
             <InboundView
               userRole={userRole}
+              authToken={authToken}
               poList={poList}
               suppliers={suppliers}
               products={products}
@@ -1337,6 +1358,7 @@ export default function WebAdminDashboard() {
           {activeTab === "outbound" && (
             <OutboundView
               userRole={userRole}
+              authToken={authToken}
               salesOrderList={salesOrderList}
               stockLedgerItems={stockLedgerItems}
               onOpenCreateSO={() => setIsCreateSOOpen(true)}

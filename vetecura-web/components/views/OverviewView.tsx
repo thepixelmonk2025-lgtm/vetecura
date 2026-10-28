@@ -70,9 +70,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <button
             onClick={() => {
               if (typeof window !== "undefined") {
+                const token = localStorage.getItem("vetecura_token") || sessionStorage.getItem("vetecura_token") || "";
+                const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
                 const scannerUrl = window.location.hostname !== "localhost" 
-                  ? `${window.location.origin}/pwa/` 
-                  : "http://localhost:5173";
+                  ? `${window.location.origin}/pwa/${tokenParam}` 
+                  : `http://localhost:5173/${tokenParam}`;
                 window.open(scannerUrl, "_blank");
               }
             }}

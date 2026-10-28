@@ -22,6 +22,7 @@ interface OutboundViewProps {
   salesOrderList: SalesOrderRow[];
   stockLedgerItems?: StockLedgerDetailRow[];
   userRole: import("../types").UserRole;
+  authToken?: string | null;
   onOpenCreateSO: () => void;
   onEditSO?: (so: SalesOrderRow) => void;
   onDeleteSO?: (so: SalesOrderRow) => void;
@@ -31,6 +32,7 @@ export const OutboundView: React.FC<OutboundViewProps> = ({
   salesOrderList,
   stockLedgerItems = [],
   userRole,
+  authToken,
   onOpenCreateSO,
   onEditSO,
   onDeleteSO,
@@ -65,7 +67,9 @@ export const OutboundView: React.FC<OutboundViewProps> = ({
       const base = window.location.hostname !== "localhost"
         ? `${window.location.origin}/pwa/`
         : "http://localhost:5173/";
-      return `${base}?type=dispatch&po=${so.order_reference}&expected=${so.expected_count}&scanned=${so.scanned_count}&customer=${encodeURIComponent(so.customer_name)}`;
+      const token = authToken || localStorage.getItem("vetecura_token") || sessionStorage.getItem("vetecura_token") || "";
+      const tokenParam = token ? `&token=${encodeURIComponent(token)}` : "";
+      return `${base}?type=dispatch&po=${so.order_reference}&expected=${so.expected_count}&scanned=${so.scanned_count}&customer=${encodeURIComponent(so.customer_name)}${tokenParam}`;
     }
     return `http://localhost:5173/?type=dispatch&po=${so.order_reference}`;
   };

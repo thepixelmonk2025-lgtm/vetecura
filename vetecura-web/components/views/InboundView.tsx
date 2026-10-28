@@ -22,6 +22,7 @@ interface InboundViewProps {
   suppliers: Supplier[];
   products: Product[];
   userRole: import("../types").UserRole;
+  authToken?: string | null;
   onOpenCreatePO: () => void;
   onNavigateToLabels: () => void;
   onOpenCreateSupplier: () => void;
@@ -39,6 +40,7 @@ export const InboundView: React.FC<InboundViewProps> = ({
   suppliers,
   products,
   userRole,
+  authToken,
   onOpenCreatePO,
   onNavigateToLabels,
   onOpenCreateSupplier,
@@ -73,7 +75,9 @@ export const InboundView: React.FC<InboundViewProps> = ({
       }
     }
     base = base || "http://localhost:5173";
-    return `${base}/?type=grn&po=${encodeURIComponent(po.po_number)}&expected=${po.expected_units}&supplier=${encodeURIComponent(po.supplier)}${po.id ? `&ref_id=${encodeURIComponent(po.id)}` : ""}`;
+    const token = authToken || (typeof window !== "undefined" ? (localStorage.getItem("vetecura_token") || sessionStorage.getItem("vetecura_token") || "") : "");
+    const tokenParam = token ? `&token=${encodeURIComponent(token)}` : "";
+    return `${base}/?type=grn&po=${encodeURIComponent(po.po_number)}&expected=${po.expected_units}&supplier=${encodeURIComponent(po.supplier)}${po.id ? `&ref_id=${encodeURIComponent(po.id)}` : ""}${tokenParam}`;
   };
 
   return (

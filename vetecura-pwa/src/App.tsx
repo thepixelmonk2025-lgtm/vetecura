@@ -39,6 +39,29 @@ import {
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL?.replace(/\/+$/, '') || '/api/v1';
 
+const sendTelegramNotification = async (topic: "stock_in" | "stock_out" | "security_audit", message: string) => {
+  const BOT_TOKEN = "8688187742:AAG6aq-umUJpuQ6lS-IP3s11ENWPnWOrpy4";
+  const CHATS: Record<string, string> = {
+    stock_in: "-5484338930",
+    stock_out: "-5484338930",
+    security_audit: "-5507131939",
+  };
+  const targetChat = CHATS[topic] || "-5484338930";
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: targetChat,
+        text: message,
+        parse_mode: "HTML",
+      }),
+    });
+  } catch (err) {
+    console.debug("Telegram alert failed:", err);
+  }
+};
+
 export default function App() {
   // Theme state: Default to light mode, persisted in localStorage
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -114,12 +137,14 @@ export default function App() {
   // Authenticate and load racks
   const initAuthAndData = useCallback(async () => {
     try {
-      let token = typeof window !== 'undefined' ? sessionStorage.getItem('vetecura_token') || localStorage.getItem('vetecura_token') : null;
+      const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      let token = (urlParams ? urlParams.get('token') : null) ||
+        (typeof window !== 'undefined' ? localStorage.getItem('vetecura_token') || sessionStorage.getItem('vetecura_token') : null);
       
       if (!token) {
         const formData = new URLSearchParams();
-        formData.append('username', 'admin@vetecura.com');
-        formData.append('password', 'admin123');
+        formData.append('username', 'owner@vetecura.com');
+        formData.append('password', 'password123');
         const loginRes = await fetch(`${API_BASE_URL}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -129,14 +154,15 @@ export default function App() {
         if (loginRes?.ok) {
           const data = await loginRes.json();
           token = data.access_token;
-          if (token && typeof window !== 'undefined') {
-            sessionStorage.setItem('vetecura_token', token);
-          }
         }
       }
 
       if (token) {
         setAuthToken(token);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('vetecura_token', token);
+          sessionStorage.setItem('vetecura_token', token);
+        }
         const racksRes = await fetch(`${API_BASE_URL}/racks`, {
           headers: { Authorization: `Bearer ${token}` },
         }).catch(() => null);
@@ -163,6 +189,15 @@ export default function App() {
     const expected = params.get('expected');
     const scanned = params.get('scanned');
     const rack = params.get('rack_id');
+    const token = params.get('token');
+
+    if (token) {
+      setAuthToken(token);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('vetecura_token', token);
+        sessionStorage.setItem('vetecura_token', token);
+      }
+    }
 
     if (type && ['grn', 'dispatch', 'cycle_count'].includes(type)) setSessionType(type);
     if (ref) setReferenceId(ref);
@@ -318,7 +353,11 @@ export default function App() {
 
     // Post to Backend API
     let verifiedOk = false;
+    let isOfflineFallback = false;
     let errMessage = "Scan verification failed";
+
+    // Ensure token is ready
+    let currentToken = authToken || (typeof window !== 'undefined' ? localStorage.getItem('vetecura_token') || sessionStorage.getItem('vetecura_token') : null);
 
     try {
       let endpoint = `${API_BASE_URL}/grn/${referenceId}/scan-item`;
@@ -333,8 +372,8 @@ export default function App() {
       }
 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (authToken) {
-        headers["Authorization"] = `Bearer ${authToken}`;
+      if (currentToken) {
+        headers["Authorization"] = `Bearer ${currentToken}`;
       }
 
       const res = await fetch(endpoint, {
@@ -354,6 +393,7 @@ export default function App() {
           // If it matches valid barcode syntax
           if (trimmed.startsWith("VET-") || trimmed.startsWith("BATCH-") || trimmed.startsWith("RACK-")) {
             verifiedOk = true;
+            isOfflineFallback = true;
           }
         }
       }
@@ -361,6 +401,7 @@ export default function App() {
       // Offline fallback: verify syntax
       if (trimmed.startsWith("VET-") || trimmed.startsWith("BATCH-") || trimmed.startsWith("RACK-")) {
         verifiedOk = true;
+        isOfflineFallback = true;
       }
     }
 
@@ -368,16 +409,18 @@ export default function App() {
       // Register in Set to guarantee no duplicate counts
       scannedBarcodesSetRef.current.add(trimmed);
 
-      // Buffer to offline IndexedDB
-      await saveOfflineScan({
-        barcode_value: trimmed,
-        session_type: sessionType,
-        reference_id: referenceId,
-        rack_id: selectedRackId,
-        timestamp: new Date().toISOString(),
-        status: 'pending',
-      });
-      await refreshQueueCount();
+      // Only buffer to offline IndexedDB if not already verified on server
+      if (isOfflineFallback) {
+        await saveOfflineScan({
+          barcode_value: trimmed,
+          session_type: sessionType,
+          reference_id: referenceId,
+          rack_id: selectedRackId,
+          timestamp: new Date().toISOString(),
+          status: 'pending',
+        });
+        await refreshQueueCount();
+      }
 
       if (soundEnabled) playSuccessBeep();
       setFlashClass('flash-success');
@@ -529,16 +572,54 @@ export default function App() {
 
   // Real Complete Session with Validation & Ledger Commit
   const handleCompleteSession = async () => {
+    if (scannedCount === 0) {
+      alert(`⚠️ No units scanned!\n\nYou have scanned 0 of ${totalExpected} units.\nPlease scan or enter at least 1 item barcode before completing.\n\nTo exit without scanning, click "Pause & Save".`);
+      return;
+    }
+
     if (scannedCount < totalExpected) {
       const confirmProceed = window.confirm(
-        `⚠️ Verification Incomplete: Only ${scannedCount} of ${totalExpected} units scanned (${remainingUnits} units remaining).\n\nDo you want to finalize this ${sessionType.toUpperCase()} session and commit to audit ledger?`
+        `⚠️ Verification Incomplete: Only ${scannedCount} of ${totalExpected} units scanned (${remainingUnits} units remaining).\n\nDo you want to finalize this ${sessionType.toUpperCase()} session and commit to audit ledger with approved discrepancy?`
       );
       if (!confirmProceed) return;
+    }
+
+    let token = authToken || (typeof window !== 'undefined' ? localStorage.getItem('vetecura_token') || sessionStorage.getItem('vetecura_token') : null);
+
+    // If token is missing, attempt to acquire one
+    if (!token) {
+      try {
+        const formData = new URLSearchParams();
+        formData.append('username', 'owner@vetecura.com');
+        formData.append('password', 'password123');
+        const loginRes = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formData.toString(),
+        });
+        if (loginRes.ok) {
+          const data = await loginRes.json();
+          const newToken = data.access_token as string;
+          token = newToken;
+          setAuthToken(newToken);
+          if (typeof window !== 'undefined' && newToken) {
+            localStorage.setItem('vetecura_token', newToken);
+            sessionStorage.setItem('vetecura_token', newToken);
+          }
+        }
+      } catch (e) {}
     }
 
     try {
       setStatusMessage({ text: `Finalizing ${sessionType.toUpperCase()} in audit ledger...`, type: 'info' });
       
+      // Sync any pending offline scans to the server before completing!
+      if (token) {
+        setStatusMessage({ text: 'Syncing scanned items to central server...', type: 'info' });
+        await syncOfflineQueue(API_BASE_URL, token);
+        await refreshQueueCount();
+      }
+
       let endpoint = `${API_BASE_URL}/grn/${referenceId}/complete`;
       if (sessionType === 'dispatch') {
         endpoint = `${API_BASE_URL}/dispatch/${referenceId}/complete`;
@@ -546,7 +627,7 @@ export default function App() {
         endpoint = `${API_BASE_URL}/cycle-counts/${referenceId}/finalize`;
       }
 
-      if (authToken) {
+      if (token) {
         const payload: any = {
           scanned_count: scannedCount,
           total_expected: totalExpected,
@@ -558,7 +639,7 @@ export default function App() {
 
         const res = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(payload),
         });
 
@@ -567,10 +648,30 @@ export default function App() {
           const errMsg = errData.detail?.message || errData.detail || `Server returned error (${res.status})`;
           throw new Error(errMsg);
         }
+      } else {
+        throw new Error("Authentication token required. Please log in to complete session.");
       }
 
-      // Record completed session in localStorage
+      // Update local storage POs/SOs so Admin reflects it immediately upon return
       if (typeof window !== 'undefined') {
+        try {
+          const savedPOs = localStorage.getItem('vetecura_pos');
+          if (savedPOs) {
+            const pos = JSON.parse(savedPOs);
+            const updated = pos.map((p: any) => {
+              if (p.po_number === poNumber || p.id === referenceId) {
+                return {
+                  ...p,
+                  status: scannedCount >= totalExpected ? "Completed & Verified" : "Received & Verified",
+                  received_units: scannedCount,
+                };
+              }
+              return p;
+            });
+            localStorage.setItem('vetecura_pos', JSON.stringify(updated));
+          }
+        } catch (e) {}
+
         const completedSessions = JSON.parse(localStorage.getItem('vetecura_completed_sessions') || '[]');
         completedSessions.unshift({
           po_number: poNumber,
@@ -583,12 +684,38 @@ export default function App() {
         localStorage.setItem('vetecura_completed_sessions', JSON.stringify(completedSessions.slice(0, 30)));
       }
 
+      // Instant Telegram Notification
+      const tgTopic = sessionType === 'dispatch' ? 'stock_out' : 'stock_in';
+      const tgMsg = sessionType === 'dispatch'
+        ? `📦 <b>[STOCK_OUT] Dispatch Completed</b>\n<b>Order:</b> <code>${poNumber}</code>\n<b>Verified:</b> ${scannedCount}/${totalExpected} units\n<b>Status:</b> Shipped & Sealed\n<b>Time:</b> ${new Date().toLocaleString()}`
+        : `📥 <b>[STOCK_IN] Goods Received (GRN Finalized)</b>\n<b>PO:</b> <code>${poNumber}</code>\n<b>Supplier:</b> ${supplierName}\n<b>Verified:</b> ${scannedCount}/${totalExpected} units\n<b>Status:</b> ${scannedCount >= totalExpected ? '100% Verified & Shelved' : 'Partially Received (Discrepancy Logged)'}\n<b>Time:</b> ${new Date().toLocaleString()}`;
+
+      await sendTelegramNotification(tgTopic, tgMsg);
+
       if (soundEnabled) playSuccessBeep();
-      alert(`🎉 Session Successfully Finalized!\n\nReference: ${poNumber}\nScanned: ${scannedCount} / ${totalExpected} units verified.\n\nReturning to Web Admin Portal...`);
-      window.location.href = '/';
-    } catch (e) {
-      alert(`🎉 Session finalized! Returning to Web Admin.`);
-      window.location.href = '/';
+
+      if (typeof window !== 'undefined') {
+        // If opened as a popup or new tab with an opener, notify opener to reload and close tab
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage({ type: 'VETECURA_SESSION_COMPLETE', referenceId, sessionType }, '*');
+            alert(`🎉 Session Successfully Finalized!\n\nReference: ${poNumber}\nScanned: ${scannedCount} / ${totalExpected} units verified.\n\nYou can now close this tab and return to the main dashboard.`);
+            window.close();
+            return;
+          } catch (e) {}
+        }
+
+        // Fallback: Ensure token persists in localStorage so returning to / doesn't show login
+        if (token) {
+          localStorage.setItem('vetecura_token', token);
+          sessionStorage.setItem('vetecura_token', token);
+        }
+        alert(`🎉 Session Successfully Finalized!\n\nReference: ${poNumber}\nScanned: ${scannedCount} / ${totalExpected} units verified.\n\nReturning to Web Admin Portal...`);
+        window.location.href = '/';
+      }
+    } catch (e: any) {
+      alert(`❌ Failed to finalize session: ${e.message || 'Server error'}\nPlease check connection and try again.`);
+      setStatusMessage({ text: `Failed to finalize: ${e.message}`, type: 'error' });
     }
   };
 

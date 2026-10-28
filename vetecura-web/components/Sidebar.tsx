@@ -235,6 +235,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => {
                 sessionStorage.removeItem("vetecura_token");
                 sessionStorage.removeItem("vetecura_role");
+                localStorage.removeItem("vetecura_token");
+                localStorage.removeItem("vetecura_role");
                 window.location.reload();
               }}
               className="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-xl flex items-center justify-center transition-colors cursor-pointer shrink-0"
