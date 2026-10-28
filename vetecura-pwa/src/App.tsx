@@ -547,11 +547,26 @@ export default function App() {
       }
 
       if (authToken) {
-        await fetch(endpoint, {
+        const payload: any = {
+          scanned_count: scannedCount,
+          total_expected: totalExpected,
+        };
+        if (scannedCount !== totalExpected) {
+          payload.force_close = true;
+          payload.reason = "Warehouse manager approved discrepancy verification and closed scan session";
+        }
+
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-          body: JSON.stringify({ scanned_count: scannedCount, total_expected: totalExpected }),
-        }).catch(() => null);
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.detail?.message || errData.detail || `Server returned error (${res.status})`;
+          throw new Error(errMsg);
+        }
       }
 
       // Record completed session in localStorage

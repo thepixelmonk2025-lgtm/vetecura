@@ -30,6 +30,8 @@ class POStatusEnum(str, enum.Enum):
     draft = "draft"
     pending_approval = "pending_approval"
     approved = "approved"
+    in_progress = "in_progress"
+    completed = "completed"
     rejected = "rejected"
     closed = "closed"
 
