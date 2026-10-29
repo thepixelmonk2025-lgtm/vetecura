@@ -20,6 +20,7 @@ interface HeaderProps {
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   telegramLogs: TelegramAlertLog[];
+  onClearNotifications?: () => void;
   onOpenCreatePO: () => void;
   onOpenCreateWriteoff: () => void;
   onOpenCreateReturn: () => void;
@@ -34,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   userRole,
   setUserRole,
   telegramLogs,
+  onClearNotifications,
   onOpenCreatePO,
   onOpenCreateWriteoff,
   onOpenCreateReturn,
@@ -168,9 +170,20 @@ export const Header: React.FC<HeaderProps> = ({
                   <Radio className="w-4 h-4 text-emerald-600" />
                   <p className="font-extrabold text-sm text-slate-900">Telegram Alert Stream</p>
                 </div>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Bot Connected
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {telegramLogs.length > 0 && onClearNotifications && (
+                    <button
+                      onClick={onClearNotifications}
+                      className="text-[10px] font-bold text-slate-600 hover:text-red-600 hover:bg-red-50 px-2 py-0.5 rounded-lg border border-slate-200 transition-all cursor-pointer"
+                      title="Clear all alerts"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    Bot Connected
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">

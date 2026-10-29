@@ -83,6 +83,16 @@ async def get_alerts_log(
     res = await db.execute(select(TelegramAlertLog).order_by(TelegramAlertLog.created_at.desc()))
     return res.scalars().all()
 
+@router.delete("/log")
+async def clear_alerts_log(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.owner, RoleEnum.warehouse_manager])),
+):
+    from sqlalchemy import delete
+    await db.execute(delete(TelegramAlertLog))
+    await db.commit()
+    return {"status": "cleared"}
+
 @router.post("/test")
 async def send_test_notification(
     db: AsyncSession = Depends(get_db),

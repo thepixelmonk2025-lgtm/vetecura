@@ -1,4 +1,5 @@
 import inspect
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -207,8 +208,29 @@ async def get_audit_extract(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role([RoleEnum.owner, RoleEnum.warehouse_manager])),
 ):
-    res = await db.execute(select(AuditLog).order_by(AuditLog.timestamp.desc()))
-    return [{"id": str(a.id), "action": a.action, "entity_type": a.entity_type, "payload": a.changes} for a in res.scalars().all()]
+    query = (
+        select(AuditLog, User.email)
+        .outerjoin(User, AuditLog.user_id == User.id)
+        .order_by(AuditLog.timestamp.desc())
+    )
+    res = await db.execute(query)
+    rows = res.all()
+    out = []
+    for a, email in rows:
+        ts_str = a.timestamp.strftime("%Y-%m-%d, %I:%M %p") if a.timestamp else "Just now"
+        out.append({
+            "id": str(a.id),
+            "timestamp": ts_str,
+            "action": a.action,
+            "entity_type": a.entity_type,
+            "entity_id": str(a.entity_id) if a.entity_id else "",
+            "user_email": email or "owner@vetecura.com",
+            "previous_hash": a.previous_hash or ("0" * 64),
+            "current_hash": a.current_hash or "",
+            "details": a.changes if isinstance(a.changes, str) else json.dumps(a.changes or {}),
+            "payload": a.changes
+        })
+    return out
 
 @router.get("/vendor-performance")
 async def get_vendor_performance(

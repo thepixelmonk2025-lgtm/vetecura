@@ -1083,6 +1083,21 @@ export default function WebAdminDashboard() {
     }
   };
 
+  const handleClearNotifications = async () => {
+    try {
+      const token = authToken || (typeof window !== "undefined" ? localStorage.getItem("vetecura_token") : null);
+      if (token) {
+        await fetch(`${API_BASE_URL}/notifications/log`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => null);
+      }
+      setTelegramLogs([]);
+    } catch (e) {
+      setTelegramLogs([]);
+    }
+  };
+
   const handleCreateSupplier = async (data: SupplierCreationData) => {
     try {
       const headers = {
@@ -1303,6 +1318,7 @@ export default function WebAdminDashboard() {
           userRole={userRole}
           setUserRole={setUserRole}
           telegramLogs={telegramLogs}
+          onClearNotifications={handleClearNotifications}
           onOpenCreatePO={() => setIsCreatePOOpen(true)}
           onOpenCreateWriteoff={() => setIsCreateWriteoffOpen(true)}
           onOpenCreateReturn={() => setIsCreateReturnOpen(true)}
