@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,10 +70,12 @@ class DispatchOut(BaseModel):
 
 class ScanItemBody(BaseModel):
     barcode_value: str
-    rack_id: uuid.UUID
-    batch_id: uuid.UUID
+    rack_id: Optional[uuid.UUID] = None
+    batch_id: Optional[uuid.UUID] = None
 
 class CompleteDispatchBody(BaseModel):
+    scanned_count: Optional[int] = None
+    total_expected: Optional[int] = None
     force_close: bool = False
     reason: Optional[str] = None
 
@@ -86,6 +88,7 @@ async def _write_audit(db, user_id, action, entity_id, payload):
     last_log = last.scalar_one_or_none()
     prev_hash = last_log.current_hash if last_log else "0" * 64
     uid = user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(str(user_id))
+    now = datetime.now(timezone.utc)
     log = AuditLog(
         user_id=uid,
         action=action,
@@ -93,9 +96,305 @@ async def _write_audit(db, user_id, action, entity_id, payload):
         entity_id=str(entity_id),
         changes=payload,
         previous_hash=prev_hash,
+        timestamp=now,
     )
     log.current_hash = log.calculate_hash()
     db.add(log)
+
+
+async def _get_dispatch_or_create(
+    reference_id: Union[uuid.UUID, str],
+    db: AsyncSession,
+    current_user: User
+) -> Dispatch:
+    """
+    Finds or creates a Dispatch session by Dispatch ID, SalesOrder ID,
+    or SalesOrder order_reference (e.g. 'SO-40753').
+    """
+    disp = None
+    parsed_uuid = None
+    try:
+        parsed_uuid = reference_id if isinstance(reference_id, uuid.UUID) else uuid.UUID(str(reference_id))
+        result = await db.execute(select(Dispatch).where(Dispatch.id == parsed_uuid))
+        disp = result.scalar_one_or_none()
+    except (ValueError, AttributeError):
+        pass
+
+    if disp:
+        return disp
+
+    # Find SalesOrder by UUID or order_reference
+    so = None
+    if parsed_uuid:
+        so_res = await db.execute(select(SalesOrder).where(SalesOrder.id == parsed_uuid))
+        so = so_res.scalar_one_or_none()
+
+    if not so:
+        clean_str = str(reference_id).strip()
+        so_res = await db.execute(select(SalesOrder).where(SalesOrder.order_reference == clean_str))
+        so = so_res.scalar_one_or_none()
+
+    if not so:
+        clean_norm = str(reference_id).replace("-", "").strip().upper()
+        all_sos = (await db.execute(select(SalesOrder))).scalars().all()
+        for s in all_sos:
+            if s.order_reference.replace("-", "").strip().upper() == clean_norm:
+                so = s
+                break
+
+    if not so:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": f"Sales Order or Dispatch '{reference_id}' not found."}
+        )
+
+    # Look for existing active Dispatch for this Sales Order
+    disp_res = await db.execute(
+        select(Dispatch)
+        .where(Dispatch.sales_order_id == so.id)
+        .order_by(Dispatch.created_at.desc(), Dispatch.id.desc())
+    )
+    existing_disp = disp_res.scalars().first()
+
+    if existing_disp and existing_disp.status == DispatchStatusEnum.in_progress:
+        return existing_disp
+
+    # If completed dispatch already exists and no new dispatch requested
+    if existing_disp and existing_disp.status == DispatchStatusEnum.completed:
+        return existing_disp
+
+    # Ensure a PickList exists
+    pl_res = await db.execute(
+        select(PickList).where(PickList.sales_order_id == so.id).order_by(PickList.created_at.desc())
+    )
+    pl = pl_res.scalars().first()
+    if not pl:
+        pl = PickList(
+            sales_order_id=so.id,
+            assigned_to=current_user.id,
+            status=PickListStatusEnum.in_progress
+        )
+        db.add(pl)
+        await db.flush()
+
+    # Calculate expected units from SalesOrderItem
+    items_res = await db.execute(select(SalesOrderItem).where(SalesOrderItem.sales_order_id == so.id))
+    so_items = items_res.scalars().all()
+    expected_qty = sum(it.ordered_qty for it in so_items) if so_items else 0
+
+    new_disp = Dispatch(
+        sales_order_id=so.id,
+        pick_list_id=pl.id,
+        dispatched_by=current_user.id,
+        scanned_count=0,
+        expected_count=expected_qty,
+        status=DispatchStatusEnum.in_progress
+    )
+    db.add(new_disp)
+    so.status = SalesOrderStatusEnum.picking
+    await db.flush()
+    return new_disp
+
+
+async def _dispatch_scan_item_logic(
+    reference_id: Union[uuid.UUID, str],
+    body: ScanItemBody,
+    db: AsyncSession,
+    current_user: User,
+) -> Dispatch:
+    disp = await _get_dispatch_or_create(reference_id, db, current_user)
+
+    if disp.status != DispatchStatusEnum.in_progress:
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "dispatch_not_active", "message": f"Dispatch session status is '{disp.status}' and cannot accept scans."}
+        )
+
+    clean_barcode = body.barcode_value.strip()
+
+    # 1. Strict Over-scan Limit: Zero Tolerance
+    if disp.expected_count > 0 and disp.scanned_count >= disp.expected_count:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "order_full",
+                "message": f"Target reached: All {disp.expected_count} units for this Sales Order have already been verified!"
+            }
+        )
+
+    # 2. Duplicate scan check within this dispatch session
+    dup_result = await db.execute(
+        select(ScanEvent).where(
+            ScanEvent.barcode_value == clean_barcode,
+            ScanEvent.reference_id == disp.id,
+            ScanEvent.event_type == "stock_out"
+        )
+    )
+    if dup_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "duplicate_scan", "message": f"Barcode '{clean_barcode}' was already scanned in this dispatch session."}
+        )
+
+    # 3. Barcode must exist in warehouse inventory (ItemBarcode table)
+    bc_res = await db.execute(
+        select(ItemBarcode).where(ItemBarcode.barcode_value == clean_barcode)
+    )
+    bc = bc_res.scalar_one_or_none()
+    if not bc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "barcode_not_found",
+                "message": f"Invalid barcode '{clean_barcode}': Barcode does not exist in warehouse inventory."
+            }
+        )
+
+    # 4. Item status checks
+    if bc.status == "dispatched":
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "item_already_dispatched", "message": f"Barcode '{clean_barcode}' has already been dispatched from warehouse."}
+        )
+    if bc.status != "available":
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "item_not_available", "message": f"Item cannot be dispatched: current status is '{bc.status}' (must be 'available')."}
+        )
+
+    # 5. Validate that product belongs to this Sales Order
+    item_res = await db.execute(
+        select(SalesOrderItem).where(
+            SalesOrderItem.sales_order_id == disp.sales_order_id,
+            SalesOrderItem.product_id == bc.product_id
+        )
+    )
+    so_item = item_res.scalar_one_or_none()
+    if not so_item:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "product_not_on_order", "message": "Scanned product does not belong to this Sales Order."}
+        )
+
+    # 6. Validate that line item quota has not been exceeded
+    prod_scanned_res = await db.execute(
+        select(func.count(ScanEvent.id))
+        .join(ItemBarcode, ScanEvent.item_barcode_id == ItemBarcode.id)
+        .where(
+            ScanEvent.reference_id == disp.id,
+            ScanEvent.event_type == "stock_out",
+            ItemBarcode.product_id == bc.product_id
+        )
+    )
+    prod_scanned_count = prod_scanned_res.scalar() or 0
+    if prod_scanned_count >= so_item.ordered_qty:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "product_quota_reached",
+                "message": f"Product quota reached: All {so_item.ordered_qty} units of this product already scanned."
+            }
+        )
+
+    # 7. Physical rack assignment
+    effective_rack_id = body.rack_id or bc.current_rack_id
+    if not effective_rack_id:
+        rack_res = await db.execute(select(Rack).limit(1))
+        rack_obj = rack_res.scalar_one_or_none()
+        if rack_obj:
+            effective_rack_id = rack_obj.id
+
+    # 8. Mark barcode reserved for this dispatch
+    bc.status = "reserved_pick"
+    bc.last_scanned_at = datetime.now(timezone.utc)
+
+    # 9. Record ScanEvent
+    scan_event = ScanEvent(
+        event_type="stock_out",
+        barcode_value=clean_barcode,
+        item_barcode_id=bc.id,
+        reference_id=disp.id,
+        rack_id=effective_rack_id,
+        scanned_by=current_user.id
+    )
+    db.add(scan_event)
+
+    disp.scanned_count += 1
+    await db.commit()
+    await db.refresh(disp)
+    return disp
+
+
+async def _dispatch_complete_logic(
+    reference_id: Union[uuid.UUID, str],
+    body: CompleteDispatchBody,
+    db: AsyncSession,
+    current_user: User,
+) -> Dispatch:
+    disp = await _get_dispatch_or_create(reference_id, db, current_user)
+
+    if disp.scanned_count != disp.expected_count:
+        if not body.force_close:
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "count_mismatch", "message": f"Scanned count mismatch: {disp.scanned_count} scanned of {disp.expected_count} expected."}
+            )
+
+        if current_user.role not in [RoleEnum.warehouse_manager, RoleEnum.owner]:
+            raise HTTPException(status_code=403, detail="Staff cannot force-close dispatches.")
+
+        if not body.reason or len(body.reason.strip()) < 10:
+            raise HTTPException(status_code=422, detail="Reason of at least 10 chars required for force close.")
+
+        disp.status = DispatchStatusEnum.completed
+        disp.completed_at = datetime.now(timezone.utc)
+        await _write_audit(db, current_user.id, "dispatch_force_closed", disp.id, {"reason": body.reason})
+        await NotificationService.enqueue(db, "security_audit", f"Dispatch {disp.id} force-closed. Reason: {body.reason}")
+    else:
+        disp.status = DispatchStatusEnum.completed
+        disp.completed_at = datetime.now(timezone.utc)
+        await _write_audit(db, current_user.id, "dispatch_completed", disp.id, {})
+        await NotificationService.enqueue(db, "stock_out", f"Dispatch {disp.id} completed successfully.")
+
+    # Update parent SalesOrder status to dispatched
+    so_res = await db.execute(select(SalesOrder).where(SalesOrder.id == disp.sales_order_id))
+    so = so_res.scalar_one_or_none()
+    if so:
+        so.status = SalesOrderStatusEnum.dispatched
+
+    # Atomic stock deduction for all items verified in this dispatch
+    scans_result = await db.execute(
+        select(ScanEvent).where(
+            ScanEvent.reference_id == disp.id,
+            ScanEvent.event_type == "stock_out"
+        )
+    )
+    scans = scans_result.scalars().all()
+    for scan in scans:
+        if not scan.item_barcode_id:
+            continue
+        bc_res = await db.get(ItemBarcode, scan.item_barcode_id)
+        if bc_res:
+            # Deduct 1 from stock ledger if exists
+            sl_res = await db.execute(
+                select(StockLedger).where(
+                    StockLedger.product_id == bc_res.product_id,
+                    StockLedger.batch_id == bc_res.batch_id,
+                ).with_for_update()
+            )
+            sl = sl_res.scalar_one_or_none()
+            if sl and sl.quantity > 0:
+                sl.quantity -= 1
+                sl.updated_at = datetime.now(timezone.utc)
+
+            bc_res.status = "dispatched"
+            bc_res.current_rack_id = None
+            bc_res.last_scanned_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(disp)
+    return disp
+
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
@@ -192,155 +491,57 @@ async def get_pick_list(
         raise HTTPException(status_code=404, detail="Pick List not found")
     return pl
 
-@router.post("/dispatches/{dispatch_id}/scan-item", response_model=DispatchOut)
-async def dispatch_scan_item(
-    dispatch_id: uuid.UUID,
+@router.post("/{reference_id}/scan-item", response_model=DispatchOut)
+async def scan_item_by_ref(
+    reference_id: str,
     body: ScanItemBody,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role([RoleEnum.warehouse_staff, RoleEnum.warehouse_manager, RoleEnum.owner])),
 ):
-    result = await db.execute(select(Dispatch).where(Dispatch.id == dispatch_id))
-    disp = result.scalar_one_or_none()
-    if not disp:
-        raise HTTPException(status_code=404, detail="Dispatch not found")
+    return await _dispatch_scan_item_logic(reference_id, body, db, current_user)
 
-    if disp.status != DispatchStatusEnum.in_progress:
-        raise HTTPException(status_code=409, detail="Dispatch is not active")
-
-    # Duplicate scan check in this dispatch
-    dup_result = await db.execute(
-        select(ScanEvent).where(
-            ScanEvent.barcode_value == body.barcode_value,
-            ScanEvent.reference_id == dispatch_id,
-            ScanEvent.event_type == "stock_out"
-        )
-    )
-    if dup_result.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail={"error": "duplicate_scan", "message": "This barcode was already scanned in this dispatch."})
-
-    # Validate barcode exists
-    bc_res = await db.execute(select(ItemBarcode).where(ItemBarcode.barcode_value == body.barcode_value))
-    bc = bc_res.scalar_one_or_none()
-    if not bc:
-        raise HTTPException(status_code=422, detail={"error": "barcode_not_found", "message": "Barcode not recognized."})
-
-    # Validate item lifecycle state
-    if bc.status == "dispatched":
-        raise HTTPException(status_code=409, detail={"error": "item_already_dispatched", "message": "This item barcode has already been dispatched."})
-    if bc.status in ["damaged_hold", "quarantine", "returned_hold"]:
-        raise HTTPException(status_code=409, detail={"error": "item_in_hold", "message": f"Item cannot be dispatched - current status is '{bc.status}'."})
-    if bc.status == "reserved_pick":
-        raise HTTPException(status_code=409, detail={"error": "item_reserved", "message": "This item is already reserved in an active dispatch session."})
-
-    # Validate physical rack location
-    if bc.current_rack_id and bc.current_rack_id != body.rack_id:
-        raise HTTPException(status_code=422, detail={"error": "rack_mismatch", "message": f"Item physical location mismatch: expected on rack {bc.current_rack_id}, scanned at {body.rack_id}."})
-
-    # Validate product is on order
-    item_res = await db.execute(
-        select(SalesOrderItem).where(
-            SalesOrderItem.sales_order_id == disp.sales_order_id,
-            SalesOrderItem.product_id == bc.product_id
-        )
-    )
-    if not item_res.scalar_one_or_none():
-        raise HTTPException(status_code=422, detail={"error": "product_not_on_order", "message": "Product not on this order."})
-
-    # Mark barcode reserved
-    bc.status = "reserved_pick"
-    bc.last_scanned_at = datetime.now(timezone.utc)
-
-    # Write scan_event
-    scan_event = ScanEvent(
-        event_type="stock_out",
-        barcode_value=body.barcode_value,
-        item_barcode_id=bc.id,
-        reference_id=dispatch_id,
-        rack_id=body.rack_id,
-        scanned_by=current_user.id
-    )
-    db.add(scan_event)
-
-    disp.scanned_count += 1
-    await db.commit()
-    await db.refresh(disp)
-    return disp
-
-@router.get("/dispatches/{id}/status", response_model=DispatchOut)
-async def get_dispatch_status(
-    id: uuid.UUID,
+@router.post("/dispatches/{dispatch_id}/scan-item", response_model=DispatchOut)
+async def dispatch_scan_item(
+    dispatch_id: str,
+    body: ScanItemBody,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role([RoleEnum.warehouse_staff, RoleEnum.warehouse_manager, RoleEnum.owner])),
 ):
-    result = await db.execute(select(Dispatch).where(Dispatch.id == id))
-    disp = result.scalar_one_or_none()
-    if not disp:
-        raise HTTPException(status_code=404, detail="Dispatch not found")
-    return disp
+    return await _dispatch_scan_item_logic(dispatch_id, body, db, current_user)
 
-@router.post("/dispatches/{id}/complete", response_model=DispatchOut)
-async def complete_dispatch(
-    id: uuid.UUID,
+@router.post("/{reference_id}/complete", response_model=DispatchOut)
+async def complete_dispatch_by_ref(
+    reference_id: str,
     body: CompleteDispatchBody,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role([RoleEnum.warehouse_staff, RoleEnum.warehouse_manager, RoleEnum.owner])),
 ):
-    result = await db.execute(select(Dispatch).where(Dispatch.id == id))
-    disp = result.scalar_one_or_none()
-    if not disp:
-        raise HTTPException(status_code=404, detail="Dispatch not found")
+    return await _dispatch_complete_logic(reference_id, body, db, current_user)
 
-    if disp.scanned_count != disp.expected_count:
-        if not body.force_close:
-            raise HTTPException(status_code=409, detail={"error": "count_mismatch", "message": "Scanned count mismatch."})
+@router.post("/dispatches/{id}/complete", response_model=DispatchOut)
+async def complete_dispatch(
+    id: str,
+    body: CompleteDispatchBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.warehouse_staff, RoleEnum.warehouse_manager, RoleEnum.owner])),
+):
+    return await _dispatch_complete_logic(id, body, db, current_user)
 
-        # Check role for force-close
-        if current_user.role not in [RoleEnum.warehouse_manager, RoleEnum.owner]:
-            raise HTTPException(status_code=403, detail="Staff cannot force-close dispatches.")
-
-        if not body.reason or len(body.reason.strip()) < 20:
-            raise HTTPException(status_code=422, detail="Reason of at least 20 chars required for force close.")
-
-        disp.status = DispatchStatusEnum.completed
-        disp.completed_at = datetime.now(timezone.utc)
-        await _write_audit(db, current_user.id, "dispatch_force_closed", disp.id, {"reason": body.reason})
-        await NotificationService.enqueue(db, "security_audit", f"Dispatch {disp.id} force-closed. Reason: {body.reason}")
-    else:
-        disp.status = DispatchStatusEnum.completed
-        disp.completed_at = datetime.now(timezone.utc)
-        await _write_audit(db, current_user.id, "dispatch_completed", disp.id, {})
-        await NotificationService.enqueue(db, "stock_out", f"Dispatch {disp.id} completed successfully.")
-
-    # Deduct stock on completion atomically with strict availability verification
-    scans_result = await db.execute(
-        select(ScanEvent).where(
-            ScanEvent.reference_id == id,
-            ScanEvent.event_type == "stock_out"
-        )
-    )
-    scans = scans_result.scalars().all()
-    for scan in scans:
-        bc_res = await db.get(ItemBarcode, scan.item_barcode_id)
-        if bc_res:
-            sl_res = await db.execute(
-                select(StockLedger).where(
-                    StockLedger.product_id == bc_res.product_id,
-                    StockLedger.batch_id == bc_res.batch_id,
-                    StockLedger.rack_id == scan.rack_id
-                ).with_for_update()
-            )
-            sl = sl_res.scalar_one_or_none()
-            if not sl or sl.quantity < 1:
-                raise HTTPException(
-                    status_code=409,
-                    detail={"error": "insufficient_stock", "message": f"Insufficient stock on rack {scan.rack_id} for barcode {bc_res.barcode_value}."}
-                )
-            sl.quantity -= 1
-            sl.updated_at = datetime.now(timezone.utc)
-            bc_res.status = "dispatched"
-            bc_res.current_rack_id = None
-            bc_res.last_scanned_at = datetime.now(timezone.utc)
-
-    await db.commit()
-    await db.refresh(disp)
+@router.get("/{reference_id}/status", response_model=DispatchOut)
+async def get_dispatch_status_by_ref(
+    reference_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.warehouse_staff, RoleEnum.warehouse_manager, RoleEnum.owner])),
+):
+    disp = await _get_dispatch_or_create(reference_id, db, current_user)
     return disp
+
+@router.get("/dispatches/{id}/status", response_model=DispatchOut)
+async def get_dispatch_status(
+    id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role([RoleEnum.warehouse_staff, RoleEnum.warehouse_manager, RoleEnum.owner])),
+):
+    disp = await _get_dispatch_or_create(id, db, current_user)
+    return disp
+

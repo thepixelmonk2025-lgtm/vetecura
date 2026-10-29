@@ -69,7 +69,8 @@ export const OutboundView: React.FC<OutboundViewProps> = ({
         : "http://localhost:5173/";
       const token = authToken || localStorage.getItem("vetecura_token") || sessionStorage.getItem("vetecura_token") || "";
       const tokenParam = token ? `&token=${encodeURIComponent(token)}` : "";
-      return `${base}?type=dispatch&po=${so.order_reference}&expected=${so.expected_count}&scanned=${so.scanned_count}&customer=${encodeURIComponent(so.customer_name)}${tokenParam}`;
+      const refParam = so.id ? `&ref_id=${encodeURIComponent(so.id)}` : `&ref_id=${encodeURIComponent(so.order_reference)}`;
+      return `${base}?type=dispatch&po=${encodeURIComponent(so.order_reference)}${refParam}&expected=${so.expected_count}&scanned=${so.scanned_count}&customer=${encodeURIComponent(so.customer_name)}${tokenParam}`;
     }
     return `http://localhost:5173/?type=dispatch&po=${so.order_reference}`;
   };

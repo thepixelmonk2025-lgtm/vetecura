@@ -119,10 +119,14 @@ export async function syncOfflineQueue(
         body: JSON.stringify(payload),
       });
 
-      if (res.ok || res.status === 409) {
-        // 409 duplicate scan is already recorded, so discard from queue
+      if (res.ok || res.status === 409 || res.status === 422) {
+        // Discard from queue once recorded or rejected by business rules
         await removeOfflineScan(scan.id);
-        synced++;
+        if (res.ok || res.status === 409) {
+          synced++;
+        } else {
+          failed++;
+        }
       } else {
         failed++;
       }

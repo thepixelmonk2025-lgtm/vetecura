@@ -6,6 +6,7 @@ import {
   saveOfflineScan,
   getOfflineScans,
   syncOfflineQueue,
+  clearAllOfflineScans,
 } from './utils/offlineQueue';
 import {
   Camera,
@@ -334,7 +335,8 @@ export default function App() {
     }
 
     // Check if batch is already 100% full (Prevents over-dispatch / over-receiving)
-    if (totalExpected > 0 && scannedCount >= totalExpected) {
+    const currentScanned = Math.max(scannedCount, scannedBarcodesSetRef.current.size);
+    if (totalExpected > 0 && currentScanned >= totalExpected) {
       if (soundEnabled) playErrorBuzzer();
       setFlashClass("flash-error");
       setLastScanStatus("error");
@@ -365,7 +367,7 @@ export default function App() {
 
       if (sessionType === "dispatch") {
         endpoint = `${API_BASE_URL}/dispatch/${referenceId}/scan-item`;
-        payload = { barcode_value: trimmed, rack_id: selectedRackId, batch_id: selectedRackId };
+        payload = { barcode_value: trimmed, rack_id: selectedRackId };
       } else if (sessionType === "cycle_count") {
         endpoint = `${API_BASE_URL}/cycle-counts/${referenceId}/scan-item`;
         payload = { barcode_value: trimmed };
@@ -386,22 +388,25 @@ export default function App() {
         verifiedOk = true;
       } else {
         const errData = await res.json().catch(() => ({}));
-        errMessage = errData.detail?.message || errData.detail || "Scan verification failed";
-        
-        // Only allow fallback offline verification if format is strictly valid
-        if (res.status === 404 || res.status === 422 || res.status === 500 || res.status === 401) {
-          // If it matches valid barcode syntax
-          if (trimmed.startsWith("VET-") || trimmed.startsWith("BATCH-") || trimmed.startsWith("RACK-")) {
-            verifiedOk = true;
-            isOfflineFallback = true;
-          }
-        }
+        errMessage = errData.detail?.message || errData.detail || `Server rejected scan (${res.status})`;
+        verifiedOk = false;
+        isOfflineFallback = false;
       }
-    } catch (err) {
-      // Offline fallback: verify syntax
-      if (trimmed.startsWith("VET-") || trimmed.startsWith("BATCH-") || trimmed.startsWith("RACK-")) {
-        verifiedOk = true;
-        isOfflineFallback = true;
+    } catch (err: any) {
+      if (!navigator.onLine && sessionType === "grn") {
+        if (trimmed.startsWith("VET-") || trimmed.startsWith("BATCH-") || trimmed.startsWith("RACK-")) {
+          verifiedOk = true;
+          isOfflineFallback = true;
+        } else {
+          errMessage = "Invalid barcode format for offline caching";
+          verifiedOk = false;
+        }
+      } else if (!navigator.onLine && sessionType === "dispatch") {
+        errMessage = "Offline Dispatch Not Allowed: Outbound items must be verified against warehouse inventory";
+        verifiedOk = false;
+      } else {
+        errMessage = err?.message || "Scan verification request failed";
+        verifiedOk = false;
       }
     }
 
@@ -444,7 +449,7 @@ export default function App() {
         inputRef.current?.focus();
       }
     }, 350);
-  }, [authToken, referenceId, selectedRackId, sessionType, refreshQueueCount, soundEnabled, autoFocusLock, isCameraOpen]);
+  }, [authToken, referenceId, selectedRackId, sessionType, refreshQueueCount, soundEnabled, autoFocusLock, isCameraOpen, scannedCount, totalExpected, poNumber]);
 
   // USB / Bluetooth Physical Barcode Scanner Keydown Listener (Desktop & Tablet)
   useEffect(() => {
@@ -925,14 +930,29 @@ export default function App() {
                 <p className="text-[11px] opacity-80">Safe local storage active. Automatic sync when network reconnects.</p>
               </div>
             </div>
-            <button
-              onClick={handleManualSync}
-              disabled={isSyncing}
-              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-all disabled:opacity-50 text-xs cursor-pointer shadow-xs shrink-0"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>Sync Now</span>
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={handleManualSync}
+                disabled={isSyncing}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-all disabled:opacity-50 text-xs cursor-pointer shadow-xs shrink-0"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>Sync Now</span>
+              </button>
+              <button
+                onClick={async () => {
+                  if (window.confirm("Clear all locally cached scans from this browser?")) {
+                    await clearAllOfflineScans();
+                    await refreshQueueCount();
+                    setStatusMessage({ text: "Cleared local scan queue", type: "info" });
+                  }
+                }}
+                className="px-3 py-1.5 bg-amber-200/60 dark:bg-amber-900/60 hover:bg-amber-300 text-amber-900 dark:text-amber-200 rounded-xl font-bold text-xs cursor-pointer transition-all shrink-0"
+                title="Clear local buffer"
+              >
+                Clear Queue
+              </button>
+            </div>
           </div>
         )}
 
