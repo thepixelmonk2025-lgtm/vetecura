@@ -91,14 +91,14 @@ export default function App() {
 
   // Session parameters (from URL query or default)
   const [sessionType, setSessionType] = useState<'grn' | 'dispatch' | 'cycle_count'>('grn');
-  const [referenceId, setReferenceId] = useState<string>('00000000-0000-0000-0000-000000000001');
-  const [poNumber, setPoNumber] = useState<string>('PO-2026-0047');
-  const [supplierName, setSupplierName] = useState<string>('PharmaCare Ltd');
-  const [selectedRackId, setSelectedRackId] = useState<string>('00000000-0000-0000-0000-000000000010');
+  const [referenceId, setReferenceId] = useState<string>('');
+  const [poNumber, setPoNumber] = useState<string>('');
+  const [supplierName, setSupplierName] = useState<string>('Warehouse Dock');
+  const [selectedRackId, setSelectedRackId] = useState<string>('');
   
   // Progress states
   const [scannedCount, setScannedCount] = useState<number>(0);
-  const [totalExpected, setTotalExpected] = useState<number>(54);
+  const [totalExpected, setTotalExpected] = useState<number>(0);
   const [lastScanned, setLastScanned] = useState<string>('None (Ready for first scan)');
   const [lastScanStatus, setLastScanStatus] = useState<'idle' | 'success' | 'duplicate' | 'error'>('idle');
   const [recentScans, setRecentScans] = useState<Array<{ code: string; time: string; status: 'ok' | 'offline' | 'error' }>>([]);
@@ -172,6 +172,42 @@ export default function App() {
           const racks = await racksRes.json();
           if (Array.isArray(racks) && racks.length > 0) {
             setSelectedRackId(racks[0].id);
+          }
+        }
+
+        // If no PO provided in URL parameters, load active PO directly from system database
+        if (!urlParams?.get('po')) {
+          const poRes = await fetch(`${API_BASE_URL}/purchase-orders`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(() => null);
+
+          if (poRes?.ok) {
+            const pos = await poRes.json();
+            if (Array.isArray(pos) && pos.length > 0) {
+              const active = pos.find((p: any) => p.status === 'in_progress' || p.status === 'draft') || pos[0];
+              if (active) {
+                setPoNumber(active.po_number);
+                setReferenceId(active.id || active.po_number);
+                const total = active.items?.reduce((s: number, i: any) => s + i.ordered_qty, 0) || 0;
+                setTotalExpected(total);
+
+                if (active.supplier_id) {
+                  const supRes = await fetch(`${API_BASE_URL}/suppliers`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                  }).catch(() => null);
+                  if (supRes?.ok) {
+                    const sups = await supRes.json();
+                    const s = sups.find((x: any) => x.id === active.supplier_id);
+                    if (s) setSupplierName(s.name);
+                    else setSupplierName('PharmaCare Supplier');
+                  }
+                }
+              }
+            } else {
+              setPoNumber('No Active Order');
+              setSupplierName('No incoming deliveries pending');
+              setTotalExpected(0);
+            }
           }
         }
       }

@@ -71,11 +71,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             onClick={() => {
               if (typeof window !== "undefined") {
                 const token = localStorage.getItem("vetecura_token") || sessionStorage.getItem("vetecura_token") || "";
-                const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
-                const scannerUrl = window.location.hostname !== "localhost" 
-                  ? `${window.location.origin}/pwa/${tokenParam}` 
-                  : `http://localhost:5173/${tokenParam}`;
-                window.open(scannerUrl, "_blank");
+                const tokenParam = token ? `&token=${encodeURIComponent(token)}` : "";
+                const base = window.location.hostname !== "localhost" 
+                  ? `${window.location.origin}/pwa/` 
+                  : "http://localhost:5173/";
+
+                // Automatically target the latest active incoming PO in the system
+                const targetPO = poList.find((p) => p.status === "In Progress" || p.status === "Draft") || poList[0];
+                if (targetPO) {
+                  const refParam = targetPO.id ? `&ref_id=${encodeURIComponent(targetPO.id)}` : "";
+                  const scannerUrl = `${base}?type=grn&po=${encodeURIComponent(targetPO.po_number)}${refParam}&expected=${targetPO.expected_units}&supplier=${encodeURIComponent(targetPO.supplier)}${tokenParam}`;
+                  window.open(scannerUrl, "_blank");
+                } else {
+                  onNavigate("inbound");
+                }
               }
             }}
             className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-2xl text-xs font-black shadow-lg shadow-emerald-500/25 transition-all hover:scale-105 cursor-pointer"
