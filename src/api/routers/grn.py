@@ -13,7 +13,7 @@ from src.models.user import RoleEnum, User
 from src.models.inbound import (
     GoodsReceipt, GRNStatusEnum,
     PurchaseOrder, PurchaseOrderItem, POStatusEnum,
-    Rack,
+    Rack, Warehouse,
 )
 from src.models.stock import Batch, ItemBarcode, StockLedger, ScanEvent
 from src.models.audit import AuditLog
@@ -42,11 +42,12 @@ async def _next_grn_number(db: AsyncSession) -> str:
 
 async def _write_audit(db, user_id, action, entity_id, payload):
     last = await db.execute(
-        select(AuditLog).order_by(AuditLog.id.desc()).limit(1).with_for_update()
+        select(AuditLog).order_by(AuditLog.timestamp.desc(), AuditLog.id.desc()).limit(1).with_for_update()
     )
     last_log = last.scalar_one_or_none()
     prev_hash = last_log.current_hash if last_log else "0" * 64
     uid = user_id if isinstance(user_id, UUID) else UUID(str(user_id))
+    now = datetime.now(timezone.utc)
     log = AuditLog(
         user_id=uid,
         action=action,
@@ -54,6 +55,7 @@ async def _write_audit(db, user_id, action, entity_id, payload):
         entity_id=str(entity_id),
         changes=payload,
         previous_hash=prev_hash,
+        timestamp=now,
     )
     log.current_hash = log.calculate_hash()
     db.add(log)
@@ -92,7 +94,7 @@ async def _get_grn_or_404(grn_id_or_ref: Union[UUID, str], db: AsyncSession, cur
         grn_res = await db.execute(
             select(GoodsReceipt)
             .where(GoodsReceipt.purchase_order_id == po.id)
-            .order_by(GoodsReceipt.created_at.desc())
+            .order_by(GoodsReceipt.gate_entry_at.desc(), GoodsReceipt.id.desc())
         )
         existing_grn = grn_res.scalars().first()
         if existing_grn and existing_grn.status == GRNStatusEnum.in_progress:
@@ -334,16 +336,31 @@ async def scan_item(
     rack = None
     effective_rack_id = body.rack_id
     if effective_rack_id:
-        rack = await db.get(Rack, effective_rack_id)
+        try:
+            parsed_rack = effective_rack_id if isinstance(effective_rack_id, UUID) else UUID(str(effective_rack_id))
+            rack = await db.get(Rack, parsed_rack)
+            if rack:
+                effective_rack_id = rack.id
+        except (ValueError, AttributeError):
+            rack = None
+
     if not rack:
         rack_res = await db.execute(select(Rack).limit(1))
         rack = rack_res.scalar_one_or_none()
         if rack:
             effective_rack_id = rack.id
-    if not rack:
-        raise HTTPException(status_code=422, detail={
-            "error": "validation_error", "message": "Rack not found"
-        })
+        else:
+            # Auto-provision warehouse & default rack if database has no racks yet
+            wh_res = await db.execute(select(Warehouse).limit(1))
+            wh = wh_res.scalar_one_or_none()
+            if not wh:
+                wh = Warehouse(name="Main Warehouse", address="Default Bay", is_damage_warehouse=False)
+                db.add(wh)
+                await db.flush()
+            rack = Rack(warehouse_id=wh.id, code="RACK-A01", capacity_units=500, qr_label_code="RACK-A01-QR")
+            db.add(rack)
+            await db.flush()
+            effective_rack_id = rack.id
 
     # ── 3. Check for duplicate scan in this GRN session ───────────────
     dup_result = await db.execute(

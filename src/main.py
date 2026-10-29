@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+import logging
+import traceback
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from src.core.config import settings
 from src.api.routers import auth
 from src.api.routers import suppliers, products, racks, purchase_orders, grn
@@ -10,6 +13,49 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
+
+# Global Exception Handler to return clean error details and prevent blind 500s
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    err_msg = str(exc)
+    trace = traceback.format_exc()
+    logging.error(f"Internal Server Error on {request.method} {request.url.path}: {err_msg}\n{trace}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": {"error": "internal_server_error", "message": err_msg}}
+    )
+
+# Startup DB Schema Patch — safely adds any missing columns or seed defaults
+@app.on_event("startup")
+async def ensure_db_schema_patch():
+    from src.db.session import AsyncSessionLocal
+    from sqlalchemy import text
+    try:
+        async with AsyncSessionLocal() as db:
+            # 1. Safely add missing columns to goods_receipts if not yet present
+            await db.execute(text("ALTER TABLE goods_receipts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();"))
+            await db.execute(text("ALTER TABLE goods_receipts ADD COLUMN IF NOT EXISTS gate_entry_at TIMESTAMPTZ DEFAULT NOW();"))
+            await db.execute(text("ALTER TABLE goods_receipts ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;"))
+            await db.execute(text("ALTER TABLE goods_receipts ADD COLUMN IF NOT EXISTS supplier_invoice_file_url TEXT;"))
+            await db.execute(text("ALTER TABLE goods_receipts ADD COLUMN IF NOT EXISTS ocr_extracted_json JSONB;"))
+            
+            # 2. Ensure at least one warehouse and rack exist so scanning never fails rack assignment
+            await db.execute(text("""
+                INSERT INTO warehouses (id, name, address, is_damage_warehouse)
+                SELECT '00000000-0000-0000-0000-000000000001', 'Main Warehouse', 'Warehouse Dock 1', false
+                WHERE NOT EXISTS (SELECT 1 FROM warehouses LIMIT 1);
+            """))
+            await db.execute(text("""
+                INSERT INTO racks (id, warehouse_id, code, capacity_units, qr_label_code)
+                SELECT '00000000-0000-0000-0000-000000000002', 
+                       (SELECT id FROM warehouses LIMIT 1), 
+                       'RACK-A01', 500, 'RACK-A01-QR'
+                WHERE NOT EXISTS (SELECT 1 FROM racks LIMIT 1);
+            """))
+            await db.commit()
+            print(" Database schema verified and patched on startup.")
+    except Exception as e:
+        print(f"⚠️ Startup schema patch notice: {e}")
 
 app.add_middleware(
     CORSMiddleware,
