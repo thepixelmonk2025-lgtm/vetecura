@@ -1,7 +1,7 @@
 import inspect
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -215,9 +215,17 @@ async def get_audit_extract(
     )
     res = await db.execute(query)
     rows = res.all()
+    # Indian Standard Time (IST): UTC + 5:30
+    IST = timezone(timedelta(hours=5, minutes=30))
     out = []
     for a, email in rows:
-        ts_str = a.timestamp.strftime("%Y-%m-%d, %I:%M %p") if a.timestamp else "Just now"
+        if a.timestamp:
+            ts = a.timestamp if a.timestamp.tzinfo else a.timestamp.replace(tzinfo=timezone.utc)
+            ist_time = ts.astimezone(IST)
+            ts_str = ist_time.strftime("%d-%m-%Y, %I:%M %p")
+        else:
+            ts_str = "Just now"
+
         out.append({
             "id": str(a.id),
             "timestamp": ts_str,

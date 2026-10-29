@@ -47,6 +47,25 @@ export const AuditSecurityView: React.FC<AuditSecurityViewProps> = ({
     if (onRejectWriteoff) onRejectWriteoff(id);
   };
 
+  const formatIndianDateTime = (ts?: string) => {
+    if (!ts) return "Just now";
+    if (ts.includes("T") || ts.endsWith("Z")) {
+      const d = new Date(ts);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+      }
+    }
+    return ts;
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top Banner with 1-Click Cryptographic Verifier */}
@@ -199,7 +218,7 @@ export const AuditSecurityView: React.FC<AuditSecurityViewProps> = ({
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700 font-mono text-[11px]">
               {sortedLogs.map((log) => (
                 <tr key={log.id} className="hover:bg-slate-50/80 transition-all">
-                  <td className="p-3.5 text-slate-500 font-sans text-xs">{log.timestamp}</td>
+                  <td className="p-3.5 text-slate-500 font-sans text-xs whitespace-nowrap">{formatIndianDateTime(log.timestamp)}</td>
                   <td className="p-3.5 font-sans font-bold text-slate-900">
                     <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[10px]">
                       {log.action}
