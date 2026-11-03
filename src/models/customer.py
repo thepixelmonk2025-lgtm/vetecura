@@ -16,3 +16,4 @@ class Customer(Base):
     address = Column(Text)
     gstin = Column(String(20))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+

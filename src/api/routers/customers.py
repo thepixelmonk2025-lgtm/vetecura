@@ -157,3 +157,4 @@ async def bulk_create_customers(
         skipped=skipped,
         message=f"Bulk import finished: {inserted} inserted, {updated} updated, {skipped} skipped."
     )
+
