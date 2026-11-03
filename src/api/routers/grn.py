@@ -400,16 +400,21 @@ async def scan_item(
         target_product_id = None
         po = await db.get(PurchaseOrder, grn.purchase_order_id)
         clean_po_num = po.po_number.replace("-", "").upper() if po else ""
+        clean_barcode = body.barcode_value.replace("-", "").upper()
 
-        if clean_po_num and clean_po_num in body.barcode_value.replace("-", "").upper():
-            if po_items:
-                target_product_id = po_items[0].product_id
-        else:
-            for pi in po_items:
-                prod = await db.get(Product, pi.product_id)
-                if prod and prod.sku and prod.sku.upper() in body.barcode_value.upper():
+        # 1. Match specific product on this PO by SKU first
+        for pi in po_items:
+            prod = await db.get(Product, pi.product_id)
+            if prod and prod.sku:
+                clean_sku = prod.sku.replace("-", "").upper()
+                if clean_sku in clean_barcode or prod.sku.upper() in body.barcode_value.upper():
                     target_product_id = prod.id
                     break
+
+        # 2. If no specific SKU matched, fallback to PO number match
+        if not target_product_id and clean_po_num and clean_po_num in clean_barcode:
+            if po_items:
+                target_product_id = po_items[0].product_id
 
         if target_product_id:
             if not effective_batch_id:

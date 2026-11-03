@@ -95,6 +95,7 @@ interface LabelPreviewerProps {
 
 export default function LabelPreviewer({
   poList = [],
+  products = [],
   targetPoNumber,
   targetSupplier,
   expectedUnits,
@@ -106,6 +107,7 @@ export default function LabelPreviewer({
   ];
 
   const [selectedPoNumber, setSelectedPoNumber] = useState<string>(targetPoNumber || availablePOs[0].po_number);
+  const [selectedItemFilter, setSelectedItemFilter] = useState<string>("all");
   const [selectedPreset, setSelectedPreset] = useState<Preset>(PRESETS[0]);
   const [barcodeVal, setBarcodeVal] = useState<string>("");
   const [printLayoutMode, setPrintLayoutMode] = useState<"a4_sheet" | "thermal_roll">("a4_sheet");
@@ -115,6 +117,54 @@ export default function LabelPreviewer({
 
   const currentPO = availablePOs.find((p) => p.po_number === selectedPoNumber) || null;
 
+  // Resolve distinct products & quantities for the current PO
+  interface ResolvedPOItem {
+    productId: string;
+    productName: string;
+    sku: string;
+    cleanSku: string;
+    orderedQty: number;
+  }
+
+  const resolvedItems: ResolvedPOItem[] = (() => {
+    if (currentPO && Array.isArray(currentPO.items) && currentPO.items.length > 0) {
+      return currentPO.items.map((it: any, idx: number) => {
+        const prod = products.find(
+          (p) =>
+            p.id === it.product_id ||
+            p.sku === it.product_id ||
+            (p.sku && it.sku && p.sku.toLowerCase() === it.sku.toLowerCase())
+        );
+        const rawSku = prod?.sku || it.sku || `ITEM${idx + 1}`;
+        const rawName = prod?.name || it.name || `Item #${idx + 1}`;
+        const cleanSku = rawSku.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        return {
+          productId: it.product_id || `prod-${idx}`,
+          productName: rawName,
+          sku: rawSku,
+          cleanSku: cleanSku || `ITEM${idx + 1}`,
+          orderedQty: Number(it.ordered_qty) || 1,
+        };
+      });
+    }
+    return [
+      {
+        productId: "default",
+        productName: "Inventory Unit",
+        sku: "GEN",
+        cleanSku: "GEN",
+        orderedQty: currentPO?.expected_units || 1,
+      },
+    ];
+  })();
+
+  const activeItemIndex = selectedItemFilter === "all" ? 0 : parseInt(selectedItemFilter, 10) || 0;
+  const activePreviewItem = resolvedItems[activeItemIndex] || resolvedItems[0];
+
+  useEffect(() => {
+    setSelectedItemFilter("all");
+  }, [selectedPoNumber]);
+
   // Generate preview QR code instantly offline
   useEffect(() => {
     let activeVal = "";
@@ -122,9 +172,16 @@ export default function LabelPreviewer({
       activeVal = selectedPreset.defaultText;
       setPrintQty(1);
     } else if (currentPO) {
-      activeVal = `VET-${currentPO.po_number.replace(/-/g, "")}-0001`;
-      // Default to entire PO units if available, or currentPO expected_units
-      setPrintQty(currentPO.expected_units || 54);
+      const cleanPO = currentPO.po_number.replace(/[^A-Za-z0-9]/g, "");
+      const cleanSku = activePreviewItem?.cleanSku || "ITEM";
+      activeVal = `VET-${cleanPO}-${cleanSku}-0001`;
+
+      if (selectedItemFilter === "all") {
+        const total = resolvedItems.reduce((acc, i) => acc + i.orderedQty, 0);
+        setPrintQty(total || currentPO.expected_units || 9);
+      } else {
+        setPrintQty(activePreviewItem?.orderedQty || 1);
+      }
     } else {
       activeVal = selectedPreset.defaultText;
     }
@@ -133,7 +190,7 @@ export default function LabelPreviewer({
     QRCode.toDataURL(activeVal || "VETECURA", { margin: 0, width: 200 })
       .then((url) => setPreviewQrDataUrl(url))
       .catch((err) => console.error("Error generating QR", err));
-  }, [selectedPoNumber, currentPO?.po_number]);
+  }, [selectedPoNumber, currentPO?.po_number, selectedItemFilter]);
 
   // Generate QR for specific code
   const handleGenerateQr = async (text: string): Promise<string> => {
@@ -150,22 +207,57 @@ export default function LabelPreviewer({
 
   // 100% RELIABLE OFFLINE NATIVE PRINT ENGINE
   const handleRealPhysicalPrint = async (printAll: boolean = false) => {
-    const totalToPrint = printAll ? (currentPO ? currentPO.expected_units : printQty) : printQty;
     const poLabel = selectedPoNumber !== "manual" ? selectedPoNumber : "PO-CUSTOM";
     const supplierLabel = currentPO ? currentPO.supplier : "Vetecura IMS";
-    const cleanPrefix = selectedPoNumber !== "manual" ? `VET-${selectedPoNumber.replace(/-/g, "")}` : "VET-UNIT";
+    const cleanPO = selectedPoNumber !== "manual" ? selectedPoNumber.replace(/[^A-Za-z0-9]/g, "") : "MANUAL";
+
+    const itemsToPrint = (selectedPoNumber === "manual" || !currentPO)
+      ? [{ productName: "Manual Item", sku: "CUSTOM", cleanSku: "CUSTOM", orderedQty: printQty }]
+      : (printAll || selectedItemFilter === "all"
+          ? resolvedItems
+          : [resolvedItems[parseInt(selectedItemFilter, 10)] || resolvedItems[0]]);
+
+    // Calculate total stickers across selected items
+    const totalToPrint = itemsToPrint.reduce((acc, it) => acc + (it.orderedQty || 1), 0);
 
     setPrintStatus(`Preparing ${totalToPrint} barcode stickers for printing...`);
 
+    // Build the sticker list with per-item details
+    const stickerDefinitions: Array<{
+      unitBarcode: string;
+      productName: string;
+      sku: string;
+      itemUnitIndex: number;
+      itemTotalQty: number;
+      overallIndex: number;
+    }> = [];
+
+    let overallIdx = 1;
+    for (const item of itemsToPrint) {
+      const qty = item.orderedQty || 1;
+      for (let k = 1; k <= qty; k++) {
+        const unitBarcode = (selectedPoNumber === "manual")
+          ? `${barcodeVal || "VET-MANUAL"}-${String(k).padStart(4, "0")}`
+          : `VET-${cleanPO}-${item.cleanSku}-${String(k).padStart(4, "0")}`;
+
+        stickerDefinitions.push({
+          unitBarcode,
+          productName: item.productName,
+          sku: item.sku,
+          itemUnitIndex: k,
+          itemTotalQty: qty,
+          overallIndex: overallIdx++,
+        });
+      }
+    }
+
     // Generate all QR data URLs offline in parallel
     const labelItems = await Promise.all(
-      Array.from({ length: totalToPrint }).map(async (_, idx) => {
-        const unitBarcode = `${cleanPrefix}-${String(idx + 1).padStart(4, "0")}`;
-        const qrDataUrl = await handleGenerateQr(unitBarcode);
+      stickerDefinitions.map(async (def) => {
+        const qrDataUrl = await handleGenerateQr(def.unitBarcode);
         return {
-          unitBarcode,
+          ...def,
           qrDataUrl,
-          unitIndex: idx + 1,
         };
       })
     );
@@ -180,11 +272,12 @@ export default function LabelPreviewer({
           </div>
           <div class="info-col">
             <div class="brand">VETECURA IMS</div>
-            <div class="po-num">${poLabel}</div>
+            <div class="prod-name" title="${item.productName}">${item.productName}</div>
+            <div class="prod-sku">SKU: ${item.sku}</div>
             <div class="barcode-num">${item.unitBarcode}</div>
             <div class="footer-meta">
-              <span class="supplier">${supplierLabel.slice(0, 16)}</span>
-              <span class="index">#${item.unitIndex}/${totalToPrint}</span>
+              <span class="po-num">${poLabel}</span>
+              <span class="index">#${item.itemUnitIndex}/${item.itemTotalQty}</span>
             </div>
           </div>
         </div>
@@ -278,13 +371,28 @@ export default function LabelPreviewer({
         height: 100%;
       }
       .brand {
-        font-size: 8pt;
+        font-size: 7pt;
         font-weight: 900;
         color: #0f172a;
         letter-spacing: 0.5px;
       }
-      .po-num {
+      .prod-name {
+        font-size: 8.5pt;
+        font-weight: 900;
+        color: #0f172a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.1;
+      }
+      .prod-sku {
         font-size: 7pt;
+        font-weight: 700;
+        color: #059669;
+        font-family: monospace;
+      }
+      .po-num {
+        font-size: 6.5pt;
         font-weight: 700;
         color: #475569;
       }
@@ -396,15 +504,30 @@ export default function LabelPreviewer({
         height: 100%;
       }
       .brand {
-        font-size: 7pt;
+        font-size: 6.5pt;
         font-weight: 900;
         color: #000000;
         line-height: 1;
       }
-      .po-num {
+      .prod-name {
+        font-size: 7.5pt;
+        font-weight: 900;
+        color: #000000;
+        line-height: 1.1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .prod-sku {
         font-size: 6.5pt;
         font-weight: 700;
         color: #333333;
+        font-family: monospace;
+      }
+      .po-num {
+        font-size: 6pt;
+        font-weight: 700;
+        color: #555555;
         line-height: 1;
       }
       .barcode-num {
@@ -469,20 +592,32 @@ export default function LabelPreviewer({
 
   // DOWNLOAD RAW ZPL FILE
   const handleDownloadZPL = () => {
-    const totalToPrint = currentPO ? currentPO.expected_units : printQty;
-    const cleanPrefix = selectedPoNumber !== "manual" ? `VET-${selectedPoNumber.replace(/-/g, "")}` : "VET-UNIT";
+    const poLabel = selectedPoNumber !== "manual" ? selectedPoNumber : "PO-CUSTOM";
+    const cleanPO = selectedPoNumber !== "manual" ? selectedPoNumber.replace(/[^A-Za-z0-9]/g, "") : "MANUAL";
+    const itemsToPrint = (selectedPoNumber === "manual" || !currentPO)
+      ? [{ productName: "Manual Item", sku: "CUSTOM", cleanSku: "CUSTOM", orderedQty: printQty }]
+      : (selectedItemFilter === "all"
+          ? resolvedItems
+          : [resolvedItems[parseInt(selectedItemFilter, 10)] || resolvedItems[0]]);
 
     let zplBatchString = "";
-    for (let i = 1; i <= totalToPrint; i++) {
-      const code = `${cleanPrefix}-${String(i).padStart(4, "0")}`;
-      zplBatchString += `^XA\n^PW${selectedPreset.width_mm * 8}\n^LL${selectedPreset.height_mm * 8}\n^FO20,20^BQN,2,4^FDMM,${code}^FS\n^FO120,20^A0N,22,22^FDVETECURA IMS^FS\n^FO120,50^A0N,18,18^FD${selectedPoNumber}^FS\n^FO120,75^A0N,16,16^FD${code}^FS\n^XZ\n\n`;
+    for (const item of itemsToPrint) {
+      const qty = item.orderedQty || 1;
+      for (let k = 1; k <= qty; k++) {
+        const code = (selectedPoNumber === "manual")
+          ? `${barcodeVal || "VET-MANUAL"}-${String(k).padStart(4, "0")}`
+          : `VET-${cleanPO}-${item.cleanSku}-${String(k).padStart(4, "0")}`;
+
+        zplBatchString += `^XA\n^PW${selectedPreset.width_mm * 8}\n^LL${selectedPreset.height_mm * 8}\n^FO20,20^BQN,2,4^FDMM,${code}^FS\n^FO120,20^A0N,22,22^FDVETECURA IMS^FS\n^FO120,48^A0N,20,20^FD${item.productName.slice(0, 20)}^FS\n^FO120,72^A0N,16,16^FDSKU: ${item.sku}^FS\n^FO120,94^A0N,16,16^FD${poLabel} (#${k}/${qty})^FS\n^FO120,116^A0N,16,16^FD${code}^FS\n^XZ\n\n`;
+      }
     }
 
+    const totalCount = itemsToPrint.reduce((acc, it) => acc + (it.orderedQty || 1), 0);
     const blob = new Blob([zplBatchString], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${selectedPoNumber || "stickers"}_${totalToPrint}units.zpl`;
+    link.download = `${selectedPoNumber || "stickers"}_${totalCount}units.zpl`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -552,6 +687,67 @@ export default function LabelPreviewer({
           </div>
         )}
       </div>
+
+      {/* If PO has multiple distinct items, allow filtering or printing all */}
+      {currentPO && selectedPoNumber !== "manual" && resolvedItems.length > 1 && (
+        <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200/80 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-emerald-600" />
+              <span>Multi-Product Order Detected ({resolvedItems.length} Different Items):</span>
+            </span>
+            <span className="text-[10px] font-bold text-emerald-800 bg-white px-2 py-0.5 rounded-full border border-emerald-300">
+              Each product gets its own distinct barcode & label
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedItemFilter("all");
+                setPrintQty(resolvedItems.reduce((s, i) => s + i.orderedQty, 0));
+              }}
+              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                selectedItemFilter === "all"
+                  ? "border-emerald-600 bg-white text-emerald-950 font-black shadow-xs ring-2 ring-emerald-500/20"
+                  : "border-emerald-200/70 bg-white/60 hover:bg-white text-slate-700"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black">📦 All Items ({resolvedItems.reduce((s, i) => s + i.orderedQty, 0)} Units)</span>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1 truncate">
+                {resolvedItems.map((i) => `${i.orderedQty}× ${i.productName}`).join(" + ")}
+              </p>
+            </button>
+
+            {resolvedItems.map((item, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setSelectedItemFilter(String(idx));
+                  setPrintQty(item.orderedQty);
+                }}
+                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  selectedItemFilter === String(idx)
+                    ? "border-emerald-600 bg-white text-emerald-950 font-black shadow-xs ring-2 ring-emerald-500/20"
+                    : "border-emerald-200/70 bg-white/60 hover:bg-white text-slate-700"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black truncate">{item.productName}</span>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                    {item.orderedQty} units
+                  </span>
+                </div>
+                <p className="text-[10px] font-mono text-slate-500 mt-1 truncate">SKU: {item.sku}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT COLUMN: Controls & Print Triggers */}
@@ -686,19 +882,21 @@ export default function LabelPreviewer({
           <div className="pt-2 space-y-2.5">
             <button
               onClick={() => handleRealPhysicalPrint(false)}
-              className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-2xl shadow-md transition-all hover:scale-[1.01]"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-2xl shadow-md transition-all hover:scale-[1.01] cursor-pointer"
             >
               <Printer className="w-4 h-4 text-white" />
-              <span>🖨️ Print {printQty} Stickers Now ({printLayoutMode === "a4_sheet" ? "A4 Sheet" : "Sticker Roll"})</span>
+              <span>
+                🖨️ Print {printQty} Stickers Now ({selectedItemFilter === "all" ? "All Items in Order" : activePreviewItem.productName})
+              </span>
             </button>
 
-            {currentPO && currentPO.expected_units > printQty && (
+            {currentPO && resolvedItems.length > 1 && selectedItemFilter !== "all" && (
               <button
                 onClick={() => handleRealPhysicalPrint(true)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl shadow-xs transition-all"
+                className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl shadow-xs transition-all cursor-pointer"
               >
                 <Layers className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Print All {currentPO.expected_units} Stickers for this Order</span>
+                <span>Print All {resolvedItems.reduce((s, i) => s + i.orderedQty, 0)} Stickers for All Items in Order</span>
               </button>
             )}
 
@@ -734,7 +932,7 @@ export default function LabelPreviewer({
             <div className="bg-white text-slate-900 p-3.5 rounded-xl border border-slate-300 shadow-inner flex items-center justify-between font-sans">
               {selectedPreset.symbology === "QR" ? (
                 <div className="flex items-center gap-3 w-full">
-                  <div className="h-16 w-16 bg-white p-1 rounded border border-slate-200 shadow-2xs flex items-center justify-center shrink-0">
+                  <div className="h-20 w-20 bg-white p-1 rounded border border-slate-200 shadow-2xs flex items-center justify-center shrink-0">
                     {previewQrDataUrl ? (
                       <img
                         src={previewQrDataUrl}
@@ -745,16 +943,34 @@ export default function LabelPreviewer({
                       <div className="text-[10px] text-slate-400">Loading...</div>
                     )}
                   </div>
-                  <div className="flex-1 overflow-hidden space-y-0.5">
-                    <p className="text-[10px] font-black text-slate-900 uppercase">VETECURA IMS</p>
-                    <p className="text-[9px] font-bold text-slate-500">{selectedPoNumber !== "manual" ? selectedPoNumber : "SAMPLE-ORDER"}</p>
-                    <p className="text-[10px] font-black text-slate-900 font-mono truncate">{barcodeVal}</p>
-                    <p className="text-[8px] text-emerald-700 font-bold">Verified Inventory Barcode</p>
+                  <div className="flex-1 overflow-hidden space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">VETECURA IMS</p>
+                    <p className="text-sm font-black text-slate-900 leading-tight truncate">
+                      {activePreviewItem?.productName || "Inventory Item"}
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200">
+                        SKU: {activePreviewItem?.sku || "GEN"}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500">
+                        {selectedPoNumber !== "manual" ? selectedPoNumber : "SAMPLE-ORDER"}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-900 font-mono bg-slate-100 px-1.5 py-0.5 rounded truncate">
+                      {barcodeVal}
+                    </p>
+                    <div className="flex items-center justify-between text-[9px] text-slate-500 pt-0.5">
+                      <span>{currentPO ? currentPO.supplier : "PharmaCare"}</span>
+                      <span className="font-bold text-emerald-700">Unit 1 of {activePreviewItem?.orderedQty || 1}</span>
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-1.5 w-full text-center">
                   <p className="text-xs font-black tracking-wider uppercase font-mono">{barcodeVal}</p>
+                  <p className="text-[11px] font-black text-slate-900 truncate">
+                    {activePreviewItem?.productName} ({activePreviewItem?.sku})
+                  </p>
                   <div className="flex justify-center items-center h-10 gap-0.5 w-full bg-white p-1.5 border border-slate-200 rounded">
                     {code128Bars.map((w, idx) => (
                       <div
@@ -764,7 +980,7 @@ export default function LabelPreviewer({
                       />
                     ))}
                   </div>
-                  <p className="text-[9px] font-bold text-slate-500">Standard Barcode</p>
+                  <p className="text-[9px] font-bold text-slate-500">Standard Barcode · {selectedPoNumber}</p>
                 </div>
               )}
             </div>

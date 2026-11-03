@@ -327,12 +327,15 @@ export default function App() {
     const cleanRef = poNumber.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
     const barcodeUpper = trimmed.toUpperCase();
 
-    // Check if barcode belongs to a specific PO or SO: VET-<REF>-<SEQUENCE>
-    const orderBarcodeMatch = barcodeUpper.match(/^VET-([A-Z0-9]+)-(\d{3,5})$/);
+    // Check if barcode belongs to a specific PO or SO:
+    // Format A: VET-<REF>-<SKU>-<SEQUENCE> (e.g. VET-PO20261102101502-SKUCARFOOD-0001)
+    // Format B: VET-<REF>-<SEQUENCE>       (e.g. VET-PO20261102101502-0001)
+    const orderBarcodeWithSkuMatch = barcodeUpper.match(/^VET-([A-Z0-9]+)-([A-Z0-9]+)-(\d{3,5})$/);
+    const orderBarcodeSimpleMatch = barcodeUpper.match(/^VET-([A-Z0-9]+)-(\d{3,5})$/);
 
-    if (orderBarcodeMatch) {
-      const barcodeRefPart = orderBarcodeMatch[1];
-      const sequenceNum = parseInt(orderBarcodeMatch[2], 10);
+    if (orderBarcodeWithSkuMatch || orderBarcodeSimpleMatch) {
+      const barcodeRefPart = orderBarcodeWithSkuMatch ? orderBarcodeWithSkuMatch[1] : orderBarcodeSimpleMatch![1];
+      const sequenceNum = parseInt(orderBarcodeWithSkuMatch ? orderBarcodeWithSkuMatch[3] : orderBarcodeSimpleMatch![2], 10);
 
       // In GRN mode: Barcode must match the active PO number
       if (sessionType === "grn" && cleanRef && barcodeRefPart !== cleanRef) {
