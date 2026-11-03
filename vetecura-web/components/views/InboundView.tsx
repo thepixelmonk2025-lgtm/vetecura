@@ -136,11 +136,11 @@ export const InboundView: React.FC<InboundViewProps> = ({
               {onOpenBulkImportProducts && (
                 <button
                   onClick={onOpenBulkImportProducts}
-                  title="Bulk Import 3,000+ SKUs via Excel / CSV"
+                  title="Bulk Import SKUs via Excel / CSV"
                   className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 bg-emerald-950/60 hover:bg-emerald-900/70 text-emerald-300 border border-emerald-500/30 rounded-2xl text-xs font-bold transition-all shadow-sm"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>📥 Bulk 3000+ SKUs</span>
+                  <span>📥 Bulk SKUs</span>
                 </button>
               )}
             </>

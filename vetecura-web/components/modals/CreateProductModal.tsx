@@ -135,7 +135,7 @@ export const CreateProductModal: React.FC<CreateProductModalProps> = ({ isOpen =
             <div className="flex items-center gap-2 min-w-0">
               <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs font-bold text-emerald-950 truncate">Need to add 3,000+ SKUs?</p>
+                <p className="text-xs font-bold text-emerald-950 truncate">Need to add multiple SKUs?</p>
                 <p className="text-[10px] text-emerald-700">Upload entire catalog via Excel / CSV in seconds</p>
               </div>
             </div>

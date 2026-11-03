@@ -32,7 +32,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
   if (!isOpen) return null;
 
   const entityTitles = {
-    products: "Bulk Import Products (3000+ SKUs)",
+    products: "Bulk Import Products (SKUs)",
     suppliers: "Bulk Import Suppliers & Vendors",
     customers: "Bulk Import Customers & Clinics",
   };
@@ -401,7 +401,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
                 {file ? file.name : "Click to select or drag & drop Excel / CSV file"}
               </p>
               <p className="text-xs text-slate-400 mt-0.5">
-                Supports .xlsx, .xls, .csv (Handles 3000+ items seamlessly)
+                Supports .xlsx, .xls, .csv
               </p>
             </div>
           </div>
@@ -527,3 +527,4 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
     </div>
   );
 };
+
