@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Building2, X } from "lucide-react";
+import { Building2, X, FileSpreadsheet } from "lucide-react";
 
 export interface SupplierCreationData {
   name: string;
@@ -14,9 +14,10 @@ interface CreateSupplierModalProps {
   isOpen?: boolean;
   onClose: () => void;
   onSubmit: (data: SupplierCreationData) => Promise<void>;
+  onOpenBulkImport?: () => void;
 }
 
-export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({ isOpen = true, onClose, onSubmit }) => {
+export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({ isOpen = true, onClose, onSubmit, onOpenBulkImport }) => {
   if (isOpen === false) return null;
   const [formData, setFormData] = useState<SupplierCreationData>({
     name: "",
@@ -69,6 +70,28 @@ export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({ isOpen
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {onOpenBulkImport && (
+          <div className="mx-6 mt-4 p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-emerald-950 truncate">Bulk Suppliers Import</p>
+                <p className="text-[10px] text-emerald-700">Import vendor directory from Excel / CSV</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenBulkImport();
+              }}
+              className="px-3 py-1.5 text-xs font-black text-emerald-800 bg-white hover:bg-emerald-100/80 border border-emerald-300 rounded-xl shadow-xs transition-all shrink-0 cursor-pointer"
+            >
+              📥 Bulk Excel Import
+            </button>
+          </div>
+        )}
 
         <div className="p-6 overflow-y-auto max-h-[70vh] space-y-5">
           {error && (

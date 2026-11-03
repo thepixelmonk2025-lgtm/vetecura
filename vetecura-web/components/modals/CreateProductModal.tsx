@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Package, X } from "lucide-react";
+import { Package, X, FileSpreadsheet } from "lucide-react";
 import { CustomSelect } from "../CustomSelect";
 
 export interface ProductCreationData {
@@ -39,9 +39,10 @@ interface CreateProductModalProps {
   isOpen?: boolean;
   onClose: () => void;
   onSubmit: (data: ProductCreationData) => Promise<void>;
+  onOpenBulkImport?: () => void;
 }
 
-export const CreateProductModal: React.FC<CreateProductModalProps> = ({ isOpen = true, onClose, onSubmit }) => {
+export const CreateProductModal: React.FC<CreateProductModalProps> = ({ isOpen = true, onClose, onSubmit, onOpenBulkImport }) => {
   if (isOpen === false) return null;
 
   const [formData, setFormData] = useState<ProductCreationData>({
@@ -128,6 +129,28 @@ export const CreateProductModal: React.FC<CreateProductModalProps> = ({ isOpen =
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {onOpenBulkImport && (
+          <div className="mx-6 mt-4 p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-emerald-950 truncate">Need to add 3,000+ SKUs?</p>
+                <p className="text-[10px] text-emerald-700">Upload entire catalog via Excel / CSV in seconds</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenBulkImport();
+              }}
+              className="px-3 py-1.5 text-xs font-black text-emerald-800 bg-white hover:bg-emerald-100/80 border border-emerald-300 rounded-xl shadow-xs transition-all shrink-0 cursor-pointer"
+            >
+              📥 Bulk Excel Import
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="p-6 space-y-4">

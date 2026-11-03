@@ -24,12 +24,14 @@ import { CreateSupplierModal, SupplierCreationData } from "../components/modals/
 import { CreateProductModal, ProductCreationData } from "../components/modals/CreateProductModal";
 import { ConfirmAuditModal, ConfirmAuditModalProps } from "../components/modals/ConfirmAuditModal";
 import { EditEntityModal, EditableEntityType } from "../components/modals/EditEntityModal";
+import { BulkImportModal } from "../components/modals/BulkImportModal";
 
 import {
   NavTab,
   UserRole,
   Supplier,
   Product,
+  Customer,
   PurchaseOrderRow,
   SalesOrderRow,
   RackItem,
@@ -78,6 +80,13 @@ export default function WebAdminDashboard() {
   const [isVerifyLedgerOpen, setIsVerifyLedgerOpen] = useState(false);
   const [isCreateSupplierOpen, setIsCreateSupplierOpen] = useState(false);
   const [isCreateProductOpen, setIsCreateProductOpen] = useState(false);
+  const [bulkImportModal, setBulkImportModal] = useState<{
+    isOpen: boolean;
+    entityType: "products" | "suppliers" | "customers";
+  }>({
+    isOpen: false,
+    entityType: "products",
+  });
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [chainVerifyData, setChainVerifyData] = useState<ChainVerificationData | null>(null);
 
@@ -114,6 +123,7 @@ export default function WebAdminDashboard() {
   // Operational Data States
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [racks, setRacks] = useState<RackItem[]>([]);
 
   const [poList, setPoList] = useState<PurchaseOrderRow[]>(() => {
@@ -161,10 +171,11 @@ export default function WebAdminDashboard() {
   const loadCoreData = useCallback(async (token: string) => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      // Batch 1: Primary entities (suppliers, products, racks, users, racks, orders)
-      const [supRes, prodRes, poRes, soRes, dispRes, racksRes, usersRes] = await Promise.all([
+      // Batch 1: Primary entities (suppliers, products, customers, racks, users, orders)
+      const [supRes, prodRes, custRes, poRes, soRes, dispRes, racksRes, usersRes] = await Promise.all([
         fetch(`${API_BASE_URL}/suppliers`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/products`, { headers }).catch(() => null),
+        fetch(`${API_BASE_URL}/customers`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/purchase-orders`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/dispatch/sales-orders`, { headers }).catch(() => null),
         fetch(`${API_BASE_URL}/dispatch/dispatches`, { headers }).catch(() => null),
@@ -189,6 +200,7 @@ export default function WebAdminDashboard() {
         setSuppliers(loadedSuppliers);
       }
       if (prodRes?.ok) setProducts(await prodRes.json());
+      if (custRes?.ok) setCustomers(await custRes.json());
       if (racksRes?.ok) setRacks(await racksRes.json());
       if (ledgerRes?.ok) {
         const liveItems = await ledgerRes.json();
@@ -398,12 +410,12 @@ export default function WebAdminDashboard() {
   const sendTelegramNotification = async (topic: "stock_in" | "stock_out" | "inventory_alerts" | "security_audit", message: string) => {
     const BOT_TOKEN = "8688187742:AAG6aq-umUJpuQ6lS-IP3s11ENWPnWOrpy4";
     const CHATS: Record<string, string> = {
-      stock_in: "-5484338930",
-      stock_out: "-5484338930",
-      inventory_alerts: "-5136252998",
-      security_audit: "-5507131939",
+      stock_in: "-1004442163700",
+      stock_out: "-1004442163700",
+      inventory_alerts: "-1004398380189",
+      security_audit: "-1004497848747",
     };
-    const targetChat = CHATS[topic] || "-5484338930";
+    const targetChat = CHATS[topic] || "-1004442163700";
 
     // Attempt 1: Call internal Next.js API route /api/notify
     try {
@@ -1362,6 +1374,8 @@ export default function WebAdminDashboard() {
               onNavigateToLabels={() => setActiveTab("labels")}
               onOpenCreateSupplier={() => setIsCreateSupplierOpen(true)}
               onOpenCreateProduct={() => setIsCreateProductOpen(true)}
+              onOpenBulkImportProducts={() => setBulkImportModal({ isOpen: true, entityType: "products" })}
+              onOpenBulkImportSuppliers={() => setBulkImportModal({ isOpen: true, entityType: "suppliers" })}
               onEditPO={handleOpenEditPO}
               onDeletePO={handleOpenDeletePO}
               onEditSupplier={handleOpenEditSupplier}
@@ -1378,6 +1392,7 @@ export default function WebAdminDashboard() {
               salesOrderList={salesOrderList}
               stockLedgerItems={stockLedgerItems}
               onOpenCreateSO={() => setIsCreateSOOpen(true)}
+              onOpenBulkImportCustomers={() => setBulkImportModal({ isOpen: true, entityType: "customers" })}
               onEditSO={handleOpenEditSO}
               onDeleteSO={handleOpenDeleteSO}
             />
@@ -1462,7 +1477,9 @@ export default function WebAdminDashboard() {
         isOpen={isCreateSOOpen}
         onClose={() => setIsCreateSOOpen(false)}
         products={products}
+        customers={customers}
         stockLedgerItems={stockLedgerItems}
+        onOpenBulkCustomers={() => setBulkImportModal({ isOpen: true, entityType: "customers" })}
         onCreateSO={handleCreateSO}
       />
 
@@ -1504,12 +1521,24 @@ export default function WebAdminDashboard() {
         isOpen={isCreateSupplierOpen}
         onClose={() => setIsCreateSupplierOpen(false)}
         onSubmit={handleCreateSupplier}
+        onOpenBulkImport={() => setBulkImportModal({ isOpen: true, entityType: "suppliers" })}
       />
 
       <CreateProductModal
         isOpen={isCreateProductOpen}
         onClose={() => setIsCreateProductOpen(false)}
         onSubmit={handleCreateProduct}
+        onOpenBulkImport={() => setBulkImportModal({ isOpen: true, entityType: "products" })}
+      />
+
+      <BulkImportModal
+        isOpen={bulkImportModal.isOpen}
+        onClose={() => setBulkImportModal((prev) => ({ ...prev, isOpen: false }))}
+        entityType={bulkImportModal.entityType}
+        authToken={authToken}
+        onSuccess={() => {
+          if (authToken) loadCoreData(authToken);
+        }}
       />
 
       {/* Audited Confirmation Modal (Delete / Cancel / Archive) */}

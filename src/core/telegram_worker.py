@@ -15,11 +15,11 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # Multi-Group Routing: allows 3 separate groups for Operations, Alerts, and Security/Management
 GROUP_CHAT_MAPPINGS = {
-    "stock_in": os.getenv("TELEGRAM_CHAT_ID_OPERATIONS") or os.getenv("TELEGRAM_CHAT_ID_STOCK_IN"),
-    "stock_out": os.getenv("TELEGRAM_CHAT_ID_OPERATIONS") or os.getenv("TELEGRAM_CHAT_ID_STOCK_OUT"),
-    "inventory_alerts": os.getenv("TELEGRAM_CHAT_ID_ALERTS") or os.getenv("TELEGRAM_CHAT_ID_INVENTORY"),
-    "security_audit": os.getenv("TELEGRAM_CHAT_ID_SECURITY") or os.getenv("TELEGRAM_CHAT_ID_OWNER"),
-    "management_reports": os.getenv("TELEGRAM_CHAT_ID_SECURITY") or os.getenv("TELEGRAM_CHAT_ID_REPORTS") or os.getenv("TELEGRAM_CHAT_ID_OWNER"),
+    "stock_in": os.getenv("TELEGRAM_CHAT_ID_OPERATIONS") or os.getenv("TELEGRAM_CHAT_ID_STOCK_IN") or "-1004442163700",
+    "stock_out": os.getenv("TELEGRAM_CHAT_ID_OPERATIONS") or os.getenv("TELEGRAM_CHAT_ID_STOCK_OUT") or "-1004442163700",
+    "inventory_alerts": os.getenv("TELEGRAM_CHAT_ID_ALERTS") or os.getenv("TELEGRAM_CHAT_ID_INVENTORY") or "-1004398380189",
+    "security_audit": os.getenv("TELEGRAM_CHAT_ID_SECURITY") or os.getenv("TELEGRAM_CHAT_ID_OWNER") or "-1004497848747",
+    "management_reports": os.getenv("TELEGRAM_CHAT_ID_SECURITY") or os.getenv("TELEGRAM_CHAT_ID_REPORTS") or os.getenv("TELEGRAM_CHAT_ID_OWNER") or "-1004497848747",
 }
 
 TOPIC_MAPPINGS = {
@@ -80,7 +80,30 @@ class TelegramAlertWorker:
                     alert.status = "sent"
                     alert.sent_at = datetime.now(timezone.utc)
                 except httpx.HTTPStatusError as e:
-                    # Fallback: if Telegram rejects due to HTML entity formatting, strip tags and send as plain text
+                    err_data = {}
+                    try:
+                        err_data = e.response.json()
+                    except Exception:
+                        pass
+
+                    # 1. Automatic Supergroup Migration Handling
+                    migrate_to = err_data.get("parameters", {}).get("migrate_to_chat_id")
+                    if migrate_to:
+                        new_chat_id = str(migrate_to)
+                        print(f"Telegram chat migrated from {target_chat_id} to supergroup {new_chat_id}. Retrying...")
+                        payload["chat_id"] = new_chat_id
+                        GROUP_CHAT_MAPPINGS[alert.topic] = new_chat_id
+                        try:
+                            migrated_res = await client.post(url, json=payload, timeout=10.0)
+                            migrated_res.raise_for_status()
+                            alert.status = "sent"
+                            alert.sent_at = datetime.now(timezone.utc)
+                            processed += 1
+                            continue
+                        except Exception as mg_err:
+                            print(f"Failed to deliver to migrated supergroup: {mg_err}")
+
+                    # 2. Fallback: if Telegram rejects due to HTML entity formatting, strip tags and send as plain text
                     if e.response.status_code == 400:
                         import re
                         plain_text = re.sub(r'<[^>]+>', '', payload["text"])
@@ -93,10 +116,12 @@ class TelegramAlertWorker:
                             alert.sent_at = datetime.now(timezone.utc)
                         except Exception as fb_err:
                             alert.status = "failed"
-                            alert.message += f"\n[Error: {str(fb_err)}]"
+                            desc = err_data.get("description", str(fb_err))
+                            alert.message += f"\n[Error: {desc}]"
                     else:
                         alert.status = "failed"
-                        alert.message += f"\n[Error: {str(e)}]"
+                        desc = err_data.get("description", str(e))
+                        alert.message += f"\n[Error: {desc}]"
                 except Exception as e:
                     print(f"Failed to send Telegram message: {e}")
                     alert.status = "failed"

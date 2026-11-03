@@ -43,11 +43,11 @@ const API_BASE_URL = (import.meta as any).env?.VITE_API_URL?.replace(/\/+$/, '')
 const sendTelegramNotification = async (topic: "stock_in" | "stock_out" | "security_audit", message: string) => {
   const BOT_TOKEN = "8688187742:AAG6aq-umUJpuQ6lS-IP3s11ENWPnWOrpy4";
   const CHATS: Record<string, string> = {
-    stock_in: "-5484338930",
-    stock_out: "-5484338930",
-    security_audit: "-5507131939",
+    stock_in: "-1004442163700",
+    stock_out: "-1004442163700",
+    security_audit: "-1004497848747",
   };
-  const targetChat = CHATS[topic] || "-5484338930";
+  const targetChat = CHATS[topic] || "-1004442163700";
   try {
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",

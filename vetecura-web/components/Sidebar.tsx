@@ -137,9 +137,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Container: Fixed slide-over on mobile/tab, static sticky on desktop */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-white border-r border-slate-200/90 flex flex-col h-screen select-none shadow-2xl lg:shadow-[2px_0_12px_rgba(0,0,0,0.02)] transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:z-30 ${
-          isMobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-white border-r border-slate-200/90 flex flex-col h-screen select-none shadow-2xl lg:shadow-[2px_0_12px_rgba(0,0,0,0.02)] transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:z-30 ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         {/* Brand Header */}
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
@@ -182,11 +181,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setActiveTab(item.id);
                       if (onCloseMobile) onCloseMobile();
                     }}
-                    className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all text-left cursor-pointer ${
-                      isActive
+                    className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all text-left cursor-pointer ${isActive
                         ? "bg-slate-900 text-white shadow-md shadow-slate-900/10 font-bold scale-[1.01]"
                         : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 font-medium"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <IconComp className={`w-4 h-4 shrink-0 ${isActive ? "text-emerald-400" : "text-slate-500"}`} />
@@ -201,9 +199,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
 
                     {item.badge && (
-                      <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full shrink-0 ml-1 ${
-                        isActive ? "bg-white/20 text-white" : item.badgeColor
-                      }`}>
+                      <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full shrink-0 ml-1 ${isActive ? "bg-white/20 text-white" : item.badgeColor
+                        }`}>
                         {item.badge}
                       </span>
                     )}
@@ -231,7 +228,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => {
                 sessionStorage.removeItem("vetecura_token");
                 sessionStorage.removeItem("vetecura_role");
@@ -241,7 +238,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               className="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-xl flex items-center justify-center transition-colors cursor-pointer shrink-0"
               title="Log Out"
-            >
+            >2
               <LogOut className="w-4 h-4" />
             </button>
           </div>

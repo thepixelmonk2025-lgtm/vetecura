@@ -24,6 +24,16 @@ export interface Supplier {
   address?: string;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gstin?: string;
+}
+
 export interface Product {
   id: string;
   name: string;

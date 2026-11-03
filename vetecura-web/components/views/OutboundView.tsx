@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Package,
   Layers,
+  FileSpreadsheet,
 } from "lucide-react";
 import { CustomSelect } from "../CustomSelect";
 
@@ -24,6 +25,7 @@ interface OutboundViewProps {
   userRole: import("../types").UserRole;
   authToken?: string | null;
   onOpenCreateSO: () => void;
+  onOpenBulkImportCustomers?: () => void;
   onEditSO?: (so: SalesOrderRow) => void;
   onDeleteSO?: (so: SalesOrderRow) => void;
 }
@@ -34,6 +36,7 @@ export const OutboundView: React.FC<OutboundViewProps> = ({
   userRole,
   authToken,
   onOpenCreateSO,
+  onOpenBulkImportCustomers,
   onEditSO,
   onDeleteSO,
 }) => {
@@ -91,13 +94,25 @@ export const OutboundView: React.FC<OutboundViewProps> = ({
 
         <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
           {(userRole === "owner" || userRole === "warehouse_manager") && (
-            <button
-              onClick={onOpenCreateSO}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-bold rounded-2xl border border-blue-200 transition-all cursor-pointer whitespace-nowrap"
-            >
-              <Plus className="w-3.5 h-3.5 text-blue-600" />
-              <span>+ New Customer Order</span>
-            </button>
+            <>
+              <button
+                onClick={onOpenCreateSO}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-bold rounded-2xl border border-blue-200 transition-all cursor-pointer whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5 text-blue-600" />
+                <span>+ New Customer Order</span>
+              </button>
+              {onOpenBulkImportCustomers && (
+                <button
+                  onClick={onOpenBulkImportCustomers}
+                  title="Bulk Import Customers via Excel / CSV"
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl border border-slate-300 transition-all cursor-pointer whitespace-nowrap"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-blue-600" />
+                  <span>📥 Bulk Customers</span>
+                </button>
+              )}
+            </>
           )}
           {selectedSO && (
             <button

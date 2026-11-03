@@ -13,6 +13,7 @@ import {
   Smartphone,
   Calendar,
   Clock,
+  FileSpreadsheet,
 } from "lucide-react";
 
 import { useSortableData } from "../../hooks/useSortableData";
@@ -27,6 +28,8 @@ interface InboundViewProps {
   onNavigateToLabels: () => void;
   onOpenCreateSupplier: () => void;
   onOpenCreateProduct?: () => void;
+  onOpenBulkImportProducts?: () => void;
+  onOpenBulkImportSuppliers?: () => void;
   onEditPO?: (po: PurchaseOrderRow) => void;
   onDeletePO?: (po: PurchaseOrderRow) => void;
   onEditSupplier?: (sup: Supplier) => void;
@@ -45,6 +48,8 @@ export const InboundView: React.FC<InboundViewProps> = ({
   onNavigateToLabels,
   onOpenCreateSupplier,
   onOpenCreateProduct,
+  onOpenBulkImportProducts,
+  onOpenBulkImportSuppliers,
   onEditPO,
   onDeletePO,
   onEditSupplier,
@@ -99,26 +104,50 @@ export const InboundView: React.FC<InboundViewProps> = ({
 
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
           {(userRole === "owner" || userRole === "purchase_team") && (
-            <button
-              onClick={onOpenCreateSupplier}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 rounded-2xl text-xs font-bold transition-all shadow-sm"
-            >
-              <Building2 className="w-4 h-4 text-emerald-400" />
-              <span>+ New Supplier</span>
-            </button>
+            <>
+              <button
+                onClick={onOpenCreateSupplier}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 rounded-2xl text-xs font-bold transition-all shadow-sm"
+              >
+                <Building2 className="w-4 h-4 text-emerald-400" />
+                <span>+ New Supplier</span>
+              </button>
+              {onOpenBulkImportSuppliers && (
+                <button
+                  onClick={onOpenBulkImportSuppliers}
+                  title="Bulk Import Suppliers via Excel / CSV"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 rounded-2xl text-xs font-semibold transition-all shadow-sm"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>📥 Bulk Suppliers</span>
+                </button>
+              )}
+            </>
           )}
           {onOpenCreateProduct && (userRole === "owner" || userRole === "purchase_team") && (
-            <button
-              onClick={onOpenCreateProduct}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 rounded-2xl text-xs font-bold transition-all shadow-sm"
-            >
-              <Package className="w-4 h-4 text-cyan-400" />
-              <span>+ New Product</span>
-            </button>
+            <>
+              <button
+                onClick={onOpenCreateProduct}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 rounded-2xl text-xs font-bold transition-all shadow-sm"
+              >
+                <Package className="w-4 h-4 text-cyan-400" />
+                <span>+ New Product</span>
+              </button>
+              {onOpenBulkImportProducts && (
+                <button
+                  onClick={onOpenBulkImportProducts}
+                  title="Bulk Import 3,000+ SKUs via Excel / CSV"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 bg-emerald-950/60 hover:bg-emerald-900/70 text-emerald-300 border border-emerald-500/30 rounded-2xl text-xs font-bold transition-all shadow-sm"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>📥 Bulk 3000+ SKUs</span>
+                </button>
+              )}
+            </>
           )}
           <button
             onClick={onNavigateToLabels}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 rounded-2xl text-xs font-bold transition-all shadow-sm"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 rounded-2xl text-xs font-bold transition-all shadow-sm"
           >
             <Printer className="w-4 h-4 text-indigo-400" />
             <span>Print Labels</span>

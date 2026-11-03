@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from src.core.config import settings
 from src.api.routers import auth
 from src.api.routers import suppliers, products, racks, purchase_orders, grn
-from src.api.routers import dispatch, writeoffs, returns, cycle_counts
+from src.api.routers import dispatch, writeoffs, returns, cycle_counts, customers
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -39,7 +39,22 @@ async def ensure_db_schema_patch():
             await db.execute(text("ALTER TABLE goods_receipts ADD COLUMN IF NOT EXISTS supplier_invoice_file_url TEXT;"))
             await db.execute(text("ALTER TABLE goods_receipts ADD COLUMN IF NOT EXISTS ocr_extracted_json JSONB;"))
             
-            # 2. Ensure at least one warehouse and rack exist so scanning never fails rack assignment
+            # 2. Safely create customers table if not yet present
+            await db.execute(text("""
+                CREATE TABLE IF NOT EXISTS customers (
+                    id UUID PRIMARY KEY,
+                    name VARCHAR(200) NOT NULL,
+                    contact_person VARCHAR(150),
+                    phone VARCHAR(20),
+                    email VARCHAR(150),
+                    address TEXT,
+                    gstin VARCHAR(20),
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS ix_customers_name ON customers(name);
+            """))
+
+            # 3. Ensure at least one warehouse and rack exist so scanning never fails rack assignment
             await db.execute(text("""
                 INSERT INTO warehouses (id, name, address, is_damage_warehouse)
                 SELECT '00000000-0000-0000-0000-000000000001', 'Main Warehouse', 'Warehouse Dock 1', false
@@ -76,6 +91,7 @@ app.include_router(purchase_orders.router, prefix=f"{settings.API_V1_STR}/purcha
 app.include_router(grn.router, prefix=f"{settings.API_V1_STR}/grn", tags=["grn"])
 
 # Phase 3: Outbound & Anti-Theft
+app.include_router(customers.router, prefix=f"{settings.API_V1_STR}/customers", tags=["customers"])
 app.include_router(dispatch.router, prefix=f"{settings.API_V1_STR}/dispatch", tags=["dispatch"])
 app.include_router(writeoffs.router, prefix=f"{settings.API_V1_STR}/writeoffs", tags=["writeoffs"])
 app.include_router(returns.router, prefix=f"{settings.API_V1_STR}/returns", tags=["returns"])

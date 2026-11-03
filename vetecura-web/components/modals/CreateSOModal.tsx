@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Truck, Package, X, CheckCircle2, Plus, Minus, Trash2 } from "lucide-react";
-import { Product, StockLedgerDetailRow } from "../types";
+import { Truck, Package, X, CheckCircle2, Plus, Minus, Trash2, FileSpreadsheet, Users } from "lucide-react";
+import { Product, StockLedgerDetailRow, Customer } from "../types";
 import { CustomSelect } from "../CustomSelect";
 
 interface CreateSOModalProps {
@@ -10,6 +10,8 @@ interface CreateSOModalProps {
   onClose: () => void;
   products: Product[];
   stockLedgerItems?: StockLedgerDetailRow[];
+  customers?: Customer[];
+  onOpenBulkCustomers?: () => void;
   onCreateSO: (customerName: string, items: Array<{ product_id: string; ordered_qty: number }>) => void;
 }
 
@@ -18,6 +20,8 @@ export const CreateSOModal: React.FC<CreateSOModalProps> = ({
   onClose,
   products,
   stockLedgerItems = [],
+  customers = [],
+  onOpenBulkCustomers,
   onCreateSO,
 }) => {
   const [customerName, setCustomerName] = useState("");
@@ -135,17 +139,42 @@ export const CreateSOModal: React.FC<CreateSOModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Customer / Clinic Name
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Customer / Clinic Name
+              </label>
+              {onOpenBulkCustomers && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenBulkCustomers();
+                  }}
+                  className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-blue-500" />
+                  <span>📥 Bulk Import Customers (Excel)</span>
+                </button>
+              )}
+            </div>
             <input
               type="text"
+              list="registered-customers-list"
               placeholder="e.g. Apex Veterinary Clinic or City Pet Hospital"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               className="w-full px-4 py-2.5 text-xs font-bold rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:bg-white focus:border-slate-900 transition-all"
               required
             />
+            {customers && customers.length > 0 && (
+              <datalist id="registered-customers-list">
+                {customers.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.contact_person ? `${c.contact_person} · ${c.phone || ""}` : ""}
+                  </option>
+                ))}
+              </datalist>
+            )}
           </div>
 
           <div className="space-y-3">
